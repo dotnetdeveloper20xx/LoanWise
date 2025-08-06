@@ -138,6 +138,113 @@ LoanWise.sln
 
 ---
 
-## 📝 License
 
-This project is open-source and available under the MIT License.
+# 🧱 LoanWise Domain Entities - Next step after setting up our solution architecture.
+
+The core domain entities used in the LoanWise platform. Each entity is modelled as a C# class in the `LoanWise.Domain` layer based on its role in the business logic and domain behaviour.
+
+---
+
+## 👤 User
+
+**Purpose**: Represents a system user (Borrower, Lender, Admin). Holds identity, role, and basic info.
+
+**Why a Class?**: Users initiate and own loans, fund projects, and interact with the platform.
+
+---
+
+## 💸 Loan
+
+**Purpose**: Central entity representing a loan application.
+
+**Why a Class?**: Encapsulates terms like amount, duration, status, and links to borrower and repayments.
+
+---
+
+## 📅 Repayment
+
+**Purpose**: Tracks each scheduled and paid installment for a loan.
+
+**Why a Class?**: Enables EMI tracking, due calculations, and history.
+
+---
+
+## 💰 Funding
+
+**Purpose**: Represents a lender's contribution toward a loan.
+
+**Why a Class?**: Tracks funding amount, date, and lender details; allows partial fulfillment.
+
+---
+
+## 🧾 EscrowTransaction (Optional)
+
+**Purpose**: Simulates holding and releasing funds once loans are fully funded.
+
+**Why a Class?**: Provides internal tracking of virtual funds before loan disbursal.
+
+---
+
+## 📂 VerificationDocument
+
+**Purpose**: Represents payslips or identity proofs uploaded by users.
+
+**Why a Class?**: Enables KYC and income verification processes.
+
+---
+
+## 🧠 CreditProfile
+
+**Purpose**: Simulates a borrower's credit score and risk level.
+
+**Why a Class?**: Used to assign risk tiers and calculate loan eligibility.
+
+---
+
+## 📊 SystemEvent
+
+**Purpose**: Captures internal actions like approvals, repayments, or notifications.
+
+**Why a Class?**: Powers audit logging and triggers real-time or email notifications.
+
+---
+
+## 🏷️ Value Objects
+
+### 💵 Money
+**Purpose**: Represents amount + currency in a single immutable object.
+
+### 🟡 RiskLevel
+**Purpose**: Indicates loan risk as Low, Medium, or High.
+
+### 🔁 LoanStatus
+**Purpose**: Enum tracking lifecycle: Pending → Approved → Funded → Completed
+
+### 🎯 LoanPurpose (Enum or Lookup)
+**Purpose**: Categorizes loan use: Education, Medical, Home Improvement, etc.
+
+---
+
+## 🧩 Relationships Summary
+
+- **User → Loans**: A borrower can apply for multiple loans.
+- **User → Fundings**: A lender can fund many loans.
+- **Loan → Fundings**: Multiple lenders can fund a single loan.
+- **Loan → Repayments**: Loans have multiple scheduled repayments.
+- **User → VerificationDocuments**: Each user may upload multiple documents.
+- **User → CreditProfile**: Each user has one profile.
+- **User → SystemEvents**: User actions logged as events.
+
+---
+
+## ✅ Why Use C# Classes for These?
+
+- Encapsulation of behavior and rules
+- Rich object modeling (not just DTOs)
+- Supports domain services and value objects
+- Enables EF Core persistence mappings
+- Promotes testable, expressive business logic
+
+---
+
+
