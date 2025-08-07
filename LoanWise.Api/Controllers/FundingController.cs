@@ -1,6 +1,7 @@
 ﻿
 using LoanWise.Application.Features.Fundings.Commands.FundLoan;
 using LoanWise.Application.Features.Fundings.DTOs;
+using LoanWise.Application.Features.Fundings.Queries.GetFundingsByLender;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using StoreBoost.Application.Common.Models;
@@ -29,5 +30,20 @@ namespace LoanWise.Api.Controllers
 
             return result.Success ? Ok(result) : BadRequest(result);
         }
+
+        /// <summary>
+        /// Retrieves all loans funded by the specified lender.
+        /// </summary>
+        /// <param name="lenderId">The lender's user ID.</param>
+        /// <returns>A list of fundings grouped by loan.</returns>
+        /// <response code="200">Returns lender's funded loans</response>
+        /// <response code="400">If lenderId is invalid</response>
+        [HttpGet("my")]
+        public async Task<IActionResult> GetMyFundings([FromQuery] Guid lenderId)
+        {
+            var result = await _mediator.Send(new GetFundingsByLenderQuery(lenderId));
+            return result.Success ? Ok(result) : BadRequest(result);
+        }
+
     }
 }

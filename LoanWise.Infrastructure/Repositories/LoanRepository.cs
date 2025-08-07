@@ -61,5 +61,12 @@ namespace LoanWise.Infrastructure.Repositories
             await _context.SaveChangesAsync(cancellationToken);
         }
 
+        public async Task<IEnumerable<Loan>> GetAllIncludingFundingsAsync(CancellationToken cancellationToken)
+        {
+            return await _context.Loans
+                .Include(l => l.Fundings)
+                .ToListAsync(cancellationToken);
+        }
+
     }
 }

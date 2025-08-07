@@ -36,5 +36,11 @@ namespace LoanWise.Application.Common.Interfaces
         /// Saves changes if the repository uses a Unit of Work pattern.
         /// </summary>
         Task SaveChangesAsync(CancellationToken cancellationToken);
+
+        /// <summary>
+        /// Retrieves all loans including their fundings for projection purposes.
+        /// </summary>
+        Task<IEnumerable<Loan>> GetAllIncludingFundingsAsync(CancellationToken cancellationToken);
+
     }
 }
