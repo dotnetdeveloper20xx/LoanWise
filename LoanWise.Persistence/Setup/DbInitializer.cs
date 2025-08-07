@@ -12,39 +12,96 @@ namespace LoanWise.Persistence.Setup
     /// </summary>
     public static class DbInitializer
     {
-        //public static async Task InitializeAsync(LoanWiseDbContext context, ILogger logger)
-        //{
-        //    await context.Database.MigrateAsync();
+        public static async Task InitializeAsync(LoanWiseDbContext context, ILogger logger)
+        {
+            await context.Database.MigrateAsync();
 
-        //    if (!context.Set<User>().Any())
-        //    {
-        //        var borrowerId = Guid.NewGuid();
+            if (!context.Users.Any())
+            {
+                logger.LogInformation("Seeding users...");
 
-        //        var borrower = new User
-        //        {
-        //            Id = borrowerId,
-        //            Email = "borrower@test.com",
-        //            Role = "Borrower"
-        //        };
+                const string demoPassword = "demo123"; // Simple password for demo/testing
 
-        //        context.Add(borrower);
+                var borrowers = Enumerable.Range(1, 10).Select(i => new User
+                {
+                    Id = Guid.NewGuid(),
+                    FullName = $"Borrower {i}",
+                    Email = $"borrower{i}@demo.com",
+                    Role = UserRole.Borrower,
+                    PasswordHash = demoPassword
+                }).ToList();
 
-        //        // Seed a loan for that borrower
-        //        var loan = new Loan(
-        //            id: Guid.NewGuid(),
-        //            borrowerId: borrowerId,
-        //            amount: new Money(10000),
-        //            durationInMonths: 12,
-        //            purpose: LoanPurpose.Business
-        //        );
+                var lenders = Enumerable.Range(1, 5).Select(i => new User
+                {
+                    Id = Guid.NewGuid(),
+                    FullName = $"Lender {i}",
+                    Email = $"lender{i}@demo.com",
+                    Role = UserRole.Lender,
+                    PasswordHash = demoPassword
+                }).ToList();
 
-        //        context.Loans.Add(loan);
+                var admins = new List<User>
+                {
+                    new User
+                    {
+                        Id = Guid.NewGuid(),
+                        FullName = "Admin",
+                        Email = "admin@loanwise.com",
+                        Role = UserRole.Admin,
+                        PasswordHash = demoPassword
+                    }
+                };
 
-        //        logger.LogInformation("Seeded test borrower and loan: {BorrowerId}", borrowerId);
-        //    }
+                context.Users.AddRange(borrowers);
+                context.Users.AddRange(lenders);
+                context.Users.AddRange(admins);
 
-        //    await context.SaveChangesAsync();
-        //}
+                await context.SaveChangesAsync();
+
+                logger.LogInformation("Seeding loans and related entities...");
+
+                var random = new Random();
+                var purposes = Enum.GetValues(typeof(LoanPurpose)).Cast<LoanPurpose>().ToList();
+                var riskLevels = Enum.GetValues(typeof(RiskLevel)).Cast<RiskLevel>().ToList();
+
+                var loans = new List<Loan>();
+
+                foreach (var borrower in borrowers)
+                {
+                    for (int i = 0; i < 3; i++)
+                    {
+                        var amount = new Money(random.Next(1000, 20000));
+                        var duration = random.Next(6, 24);
+                        var purpose = purposes[random.Next(purposes.Count)];
+
+                        var loan = new Loan(Guid.NewGuid(), borrower.Id, amount, duration, purpose);
+                        loan.Approve(riskLevels[random.Next(riskLevels.Count)]);
+
+                        foreach (var lender in lenders.OrderBy(x => random.Next()).Take(3))
+                        {
+                            var fundingAmount = random.Next(500, (int)(amount.Value / 2));
+                            var funding = new Funding(Guid.NewGuid(), loan.Id, lender.Id, new Money(fundingAmount), DateTime.UtcNow.AddDays(-i));
+                            loan.AddFunding(funding);
+                        }
+
+                        loan.UpdateFundingStatus();
+
+                        if (loan.IsFullyFunded())
+                        {
+                            loan.Disburse();
+                            loan.GenerateRepaymentSchedule();
+                        }
+
+                        loans.Add(loan);
+                    }
+                }
+
+                context.Loans.AddRange(loans);
+                await context.SaveChangesAsync();
+
+                logger.LogInformation("Seeded {Borrowers} borrowers, {Lenders} lenders, {Loans} loans.",
+                    borrowers.Count, lenders.Count, loans.Count);
+            }
+        }
     }
-
 }

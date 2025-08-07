@@ -12,18 +12,20 @@ namespace LoanWise.Persistence.Migrations
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.CreateTable(
-                name: "User",
+                name: "Users",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     FullName = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     Email = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     PasswordHash = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    Role = table.Column<int>(type: "int", nullable: false)
+                    Role = table.Column<int>(type: "int", nullable: false),
+                    CreditScore = table.Column<int>(type: "int", nullable: true),
+                    Tier = table.Column<int>(type: "int", nullable: true)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_User", x => x.Id);
+                    table.PrimaryKey("PK_Users", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
@@ -40,9 +42,9 @@ namespace LoanWise.Persistence.Migrations
                 {
                     table.PrimaryKey("PK_CreditProfiles", x => x.UserId);
                     table.ForeignKey(
-                        name: "FK_CreditProfiles_User_UserId",
+                        name: "FK_CreditProfiles_Users_UserId",
                         column: x => x.UserId,
-                        principalTable: "User",
+                        principalTable: "Users",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
                 });
@@ -64,9 +66,9 @@ namespace LoanWise.Persistence.Migrations
                 {
                     table.PrimaryKey("PK_Loans", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_Loans_User_BorrowerId",
+                        name: "FK_Loans_Users_BorrowerId",
                         column: x => x.BorrowerId,
-                        principalTable: "User",
+                        principalTable: "Users",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
                 });
@@ -86,9 +88,9 @@ namespace LoanWise.Persistence.Migrations
                 {
                     table.PrimaryKey("PK_SystemEvents", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_SystemEvents_User_UserId",
+                        name: "FK_SystemEvents_Users_UserId",
                         column: x => x.UserId,
-                        principalTable: "User",
+                        principalTable: "Users",
                         principalColumn: "Id");
                 });
 
@@ -107,9 +109,9 @@ namespace LoanWise.Persistence.Migrations
                 {
                     table.PrimaryKey("PK_VerificationDocuments", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_VerificationDocuments_User_UserId",
+                        name: "FK_VerificationDocuments_Users_UserId",
                         column: x => x.UserId,
-                        principalTable: "User",
+                        principalTable: "Users",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
                 });
@@ -159,15 +161,15 @@ namespace LoanWise.Persistence.Migrations
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
-                        name: "FK_Fundings_User_LenderId",
+                        name: "FK_Fundings_Users_LenderId",
                         column: x => x.LenderId,
-                        principalTable: "User",
+                        principalTable: "Users",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
-                        name: "FK_Fundings_User_UserId",
+                        name: "FK_Fundings_Users_UserId",
                         column: x => x.UserId,
-                        principalTable: "User",
+                        principalTable: "Users",
                         principalColumn: "Id");
                 });
 
@@ -260,7 +262,7 @@ namespace LoanWise.Persistence.Migrations
                 name: "Loans");
 
             migrationBuilder.DropTable(
-                name: "User");
+                name: "Users");
         }
     }
 }

@@ -16,27 +16,27 @@ namespace LoanWise.Domain.Entities
         /// <summary>
         /// Unique identifier for the user.
         /// </summary>
-        public Guid Id { get; private set; }
+        public Guid Id { get;  set; }
 
         /// <summary>
         /// Full name of the user.
         /// </summary>
-        public string FullName { get; private set; }
+        public string FullName { get;  set; }
 
         /// <summary>
         /// Email address (used as login identity).
         /// </summary>
-        public string Email { get; private set; }
+        public string Email { get;  set; }
 
         /// <summary>
         /// Hashed password (stored securely).
         /// </summary>
-        public string PasswordHash { get; private set; }
+        public string PasswordHash { get;  set; }
 
         /// <summary>
         /// Role of the user: Borrower, Lender, Admin.
         /// </summary>
-        public UserRole Role { get; private set; }
+        public UserRole Role { get;  set; }
 
         /// <summary>
         /// Mock KYC / credit score value.
@@ -58,7 +58,7 @@ namespace LoanWise.Domain.Entities
         public IReadOnlyCollection<VerificationDocument> Documents => _documents.AsReadOnly();
         public IReadOnlyCollection<SystemEvent> Events => _events.AsReadOnly();
 
-        private User() { }
+        public User() { }
 
         public User(Guid id, string fullName, string email, string passwordHash, UserRole role)
         {
