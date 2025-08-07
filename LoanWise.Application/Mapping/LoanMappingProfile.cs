@@ -1,4 +1,5 @@
 ﻿using AutoMapper;
+using LoanWise.Application.DTOs.Repayments;
 using LoanWise.Application.Features.Fundings.DTOs;
 using LoanWise.Application.Features.Loans.DTOs;
 using LoanWise.Domain.Entities;
@@ -45,6 +46,8 @@ namespace LoanWise.Application.Mapping
                      }
                  });
 
+            CreateMap<Repayment, RepaymentDto>()
+           .ForMember(dest => dest.Amount, opt => opt.MapFrom(src => src.Amount.Value));
 
         }
     }

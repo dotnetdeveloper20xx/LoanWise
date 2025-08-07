@@ -3,6 +3,7 @@ using LoanWise.Application.Features.Loans.Commands.ApplyLoan;
 using LoanWise.Application.Features.Loans.Commands.DisburseLoan;
 using LoanWise.Application.Features.Loans.Queries.GetLoansByBorrower;
 using LoanWise.Application.Features.Loans.Queries.GetOpenLoans;
+using LoanWise.Application.Features.Repayments.Queries.GetRepaymentsByLoanId;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using StoreBoost.Application.Common.Models;
@@ -92,6 +93,21 @@ namespace LoanWise.Api.Controllers
         {
             var response = await _mediator.Send(new DisburseLoanCommand(loanId));
             return response.Success ? Ok(response) : BadRequest(response);
+        }
+
+
+        /// <summary>
+        /// Retrieves the repayment schedule for a specific loan.
+        /// </summary>
+        /// <param name="loanId">The loan ID.</param>
+        /// <returns>List of repayment installments.</returns>
+        /// <response code="200">Repayments found</response>
+        /// <response code="400">Loan not found</response>
+        [HttpGet("{loanId}/repayments")]
+        public async Task<IActionResult> GetRepaymentsByLoanId(Guid loanId)
+        {
+            var result = await _mediator.Send(new GetRepaymentsByLoanIdQuery(loanId));
+            return result.Success ? Ok(result) : BadRequest(result);
         }
 
     }
