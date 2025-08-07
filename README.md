@@ -426,3 +426,42 @@ The `ApplyLoanCommand` is part of the **LoanWise CQRS infrastructure** and handl
 - Observability with logging and performance metrics
 - Fully testable and aligned with **Clean Architecture** and **MediatR** best practices
 
+
+# FundLoanCommand Flow – Summary
+
+The `FundLoanCommand` is part of the **LoanWise CQRS infrastructure** and manages the process of funding a loan by a lender.
+
+## 🧾 Flow Overview
+
+1. **API Layer**
+   - A lender submits a funding request via the `/api/fundings/{loanId}` endpoint.
+   - The request body is received as a `FundLoanDto`, containing the lender ID and amount.
+   - This DTO is mapped to a `FundLoanCommand` and dispatched via **MediatR**.
+
+2. **Pipeline Behaviors**
+   - **ValidationBehavior**: Validates the request using `FundLoanCommandValidator`:
+     - Amount must be greater than zero
+     - LoanId and LenderId must be provided
+   - **LoggingBehavior**: Logs the funding request and the response result.
+   - **PerformanceBehavior**: Times the execution for performance monitoring.
+
+3. **Handler Execution**
+   - `FundLoanCommandHandler` is invoked.
+   - It first loads the loan via `ILoanRepository.GetByIdAsync()`.
+   - It calculates the total amount already funded for the loan.
+   - If the funding amount is valid and doesn't exceed the remaining balance:
+     - A new `Funding` entity is created with `Money` value object and `fundedOn` timestamp.
+     - The funding is saved using `IFundingRepository.AddAsync()`.
+     - Optionally, if the loan becomes fully funded, it can be marked as such.
+
+4. **Response**
+   - A success log entry is recorded.
+   - The handler returns an `ApiResponse<Guid>` containing the funding ID.
+
+## ✅ Benefits of This Flow
+
+- Cleanly separates funding logic from API/controller concerns
+- Leverages validation and pipeline behaviors for consistency and traceability
+- Enforces business rules like "no overfunding" within the handler
+- Fully testable and extensible for status tracking (e.g. mark loan as funded)
+- Aligned with **Clean Architecture** and **MediatR** principles
