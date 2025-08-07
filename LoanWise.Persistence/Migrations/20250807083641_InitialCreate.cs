@@ -44,7 +44,7 @@ namespace LoanWise.Persistence.Migrations
                         column: x => x.UserId,
                         principalTable: "User",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateTable(
@@ -68,7 +68,7 @@ namespace LoanWise.Persistence.Migrations
                         column: x => x.BorrowerId,
                         principalTable: "User",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateTable(
@@ -111,7 +111,7 @@ namespace LoanWise.Persistence.Migrations
                         column: x => x.UserId,
                         principalTable: "User",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateTable(
@@ -134,7 +134,7 @@ namespace LoanWise.Persistence.Migrations
                         column: x => x.LoanId,
                         principalTable: "Loans",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateTable(
@@ -157,7 +157,7 @@ namespace LoanWise.Persistence.Migrations
                         column: x => x.LoanId,
                         principalTable: "Loans",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
                         name: "FK_Fundings_User_LenderId",
                         column: x => x.LenderId,
@@ -191,7 +191,7 @@ namespace LoanWise.Persistence.Migrations
                         column: x => x.LoanId,
                         principalTable: "Loans",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateIndex(

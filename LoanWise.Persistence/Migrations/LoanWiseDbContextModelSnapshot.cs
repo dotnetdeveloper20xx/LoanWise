@@ -240,7 +240,7 @@ namespace LoanWise.Persistence.Migrations
                     b.HasOne("LoanWise.Domain.Entities.User", "User")
                         .WithOne()
                         .HasForeignKey("LoanWise.Domain.Entities.CreditProfile", "UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("User");
@@ -251,7 +251,7 @@ namespace LoanWise.Persistence.Migrations
                     b.HasOne("LoanWise.Domain.Entities.Loan", "Loan")
                         .WithMany()
                         .HasForeignKey("LoanId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.OwnsOne("LoanWise.Domain.ValueObjects.Money", "Amount", b1 =>
@@ -295,7 +295,7 @@ namespace LoanWise.Persistence.Migrations
                     b.HasOne("LoanWise.Domain.Entities.Loan", "Loan")
                         .WithMany("Fundings")
                         .HasForeignKey("LoanId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("LoanWise.Domain.Entities.User", null)
@@ -339,7 +339,7 @@ namespace LoanWise.Persistence.Migrations
                     b.HasOne("LoanWise.Domain.Entities.User", "Borrower")
                         .WithMany("Loans")
                         .HasForeignKey("BorrowerId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.OwnsOne("LoanWise.Domain.ValueObjects.Money", "Amount", b1 =>
@@ -377,7 +377,7 @@ namespace LoanWise.Persistence.Migrations
                     b.HasOne("LoanWise.Domain.Entities.Loan", "Loan")
                         .WithMany("Repayments")
                         .HasForeignKey("LoanId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.OwnsOne("LoanWise.Domain.ValueObjects.Money", "Amount", b1 =>
@@ -424,7 +424,7 @@ namespace LoanWise.Persistence.Migrations
                     b.HasOne("LoanWise.Domain.Entities.User", "User")
                         .WithMany("Documents")
                         .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("User");

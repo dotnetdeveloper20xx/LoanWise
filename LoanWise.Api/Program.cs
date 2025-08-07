@@ -1,4 +1,4 @@
-using LoanWise.Application;
+
 using LoanWise.Application.DependencyInjection;
 using LoanWise.Infrastructure.DependencyInjection;
 using LoanWise.Persistence.Context;
@@ -77,7 +77,11 @@ var app = builder.Build();
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
-    app.UseSwaggerUI();
+    app.UseSwaggerUI(options =>
+    {
+        options.SwaggerEndpoint("/swagger/v1/swagger.json", "LoanWise API v1");
+        options.RoutePrefix = string.Empty; // makes Swagger UI default page (localhost:5000/)
+    });
 }
 
 app.UseHttpsRedirection();
@@ -88,12 +92,12 @@ app.UseAuthorization();
 app.MapControllers();
 
 
-using (var scope = app.Services.CreateScope())
-{
-    var dbContext = scope.ServiceProvider.GetRequiredService<LoanWiseDbContext>();
-    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
-    await DbInitializer.InitializeAsync(dbContext, logger);
-}
+//using (var scope = app.Services.CreateScope())
+//{
+//    var dbContext = scope.ServiceProvider.GetRequiredService<LoanWiseDbContext>();
+//    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+//    await DbInitializer.InitializeAsync(dbContext, logger);
+//}
 
 
 app.Run();

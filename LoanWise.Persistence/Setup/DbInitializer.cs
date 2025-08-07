@@ -12,29 +12,39 @@ namespace LoanWise.Persistence.Setup
     /// </summary>
     public static class DbInitializer
     {
-        public static async Task InitializeAsync(LoanWiseDbContext context, ILogger logger)
-        {
-            await context.Database.MigrateAsync();
+        //public static async Task InitializeAsync(LoanWiseDbContext context, ILogger logger)
+        //{
+        //    await context.Database.MigrateAsync();
 
-            if (!context.Loans.Any())
-            {
-                var testBorrowerId = Guid.NewGuid();
+        //    if (!context.Set<User>().Any())
+        //    {
+        //        var borrowerId = Guid.NewGuid();
 
-                var loan = new Loan(
-                    id: Guid.NewGuid(),
-                    borrowerId: testBorrowerId,
-                    amount: new Money(10000),
-                    durationInMonths: 12,
-                    purpose: LoanPurpose.Business
-                );
+        //        var borrower = new User
+        //        {
+        //            Id = borrowerId,
+        //            Email = "borrower@test.com",
+        //            Role = "Borrower"
+        //        };
 
-                context.Loans.Add(loan);
+        //        context.Add(borrower);
 
-                logger.LogInformation("Seeded 1 test loan for borrower {BorrowerId}", testBorrowerId);
-            }
+        //        // Seed a loan for that borrower
+        //        var loan = new Loan(
+        //            id: Guid.NewGuid(),
+        //            borrowerId: borrowerId,
+        //            amount: new Money(10000),
+        //            durationInMonths: 12,
+        //            purpose: LoanPurpose.Business
+        //        );
 
-            // Add other test entities as needed
-            await context.SaveChangesAsync();
-        }
+        //        context.Loans.Add(loan);
+
+        //        logger.LogInformation("Seeded test borrower and loan: {BorrowerId}", borrowerId);
+        //    }
+
+        //    await context.SaveChangesAsync();
+        //}
     }
+
 }
