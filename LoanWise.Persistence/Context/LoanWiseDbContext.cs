@@ -1,4 +1,5 @@
 ﻿using LoanWise.Application.Common.Interfaces;
+using LoanWise.Domain.Common;
 using LoanWise.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
@@ -9,8 +10,23 @@ namespace LoanWise.Persistence.Context
     /// </summary>
     public class LoanWiseDbContext : DbContext, IApplicationDbContext
     {
+        private readonly IDomainEventDispatcher? _eventDispatcher;
+
+        // Runtime constructor with domain event dispatcher
+        public LoanWiseDbContext(
+            DbContextOptions<LoanWiseDbContext> options,
+            IDomainEventDispatcher eventDispatcher)
+            : base(options)
+        {
+            _eventDispatcher = eventDispatcher;
+        }
+
+        // Design-time constructor for EF tools (no dispatcher needed)
         public LoanWiseDbContext(DbContextOptions<LoanWiseDbContext> options)
-            : base(options) { }
+            : base(options)
+        {
+            _eventDispatcher = null;
+        }
 
         public DbSet<Loan> Loans => Set<Loan>();
         public DbSet<Repayment> Repayments => Set<Repayment>();
@@ -21,8 +37,33 @@ namespace LoanWise.Persistence.Context
         public DbSet<EscrowTransaction> EscrowTransactions => Set<EscrowTransaction>();
         public DbSet<User> Users { get; set; } = default!;
 
-        public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
-            => base.SaveChangesAsync(cancellationToken);
+        public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+        {
+            var result = await base.SaveChangesAsync(cancellationToken);
+
+            if (_eventDispatcher is not null)
+            {
+                var domainEntities = ChangeTracker.Entries<EntityWithEvents>()
+                    .Where(e => e.Entity.DomainEvents.Any())
+                    .Select(e => e.Entity);
+
+                var domainEvents = domainEntities
+                    .SelectMany(e => e.DomainEvents)
+                    .ToList();
+
+                foreach (var entity in domainEntities)
+                {
+                    entity.ClearDomainEvents();
+                }
+
+                if (domainEvents.Any())
+                {
+                    await _eventDispatcher.DispatchAsync(domainEvents);
+                }
+            }
+
+            return result;
+        }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -57,9 +98,9 @@ namespace LoanWise.Persistence.Context
 
                 builder
                     .HasOne(f => f.Lender)
-                    .WithMany() // or WithMany(l => l.Fundings) if reverse exists
+                    .WithMany()
                     .HasForeignKey(f => f.LenderId)
-                    .OnDelete(DeleteBehavior.Restrict); // avoid cascade path issue
+                    .OnDelete(DeleteBehavior.Restrict);
             });
 
             // Repayment.Amount
@@ -88,15 +129,12 @@ namespace LoanWise.Persistence.Context
             {
                 foreach (var foreignKey in entityType.GetForeignKeys())
                 {
-                    // Skip owned types and already configured delete behavior
                     if (!foreignKey.IsOwnership && foreignKey.DeleteBehavior == DeleteBehavior.Cascade)
                     {
                         foreignKey.DeleteBehavior = DeleteBehavior.Restrict;
                     }
                 }
             }
-
-
 
             base.OnModelCreating(modelBuilder);
         }

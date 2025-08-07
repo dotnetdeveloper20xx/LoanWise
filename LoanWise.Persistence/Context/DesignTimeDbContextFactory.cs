@@ -14,7 +14,7 @@ namespace LoanWise.Persistence.Context
             var configuration = new ConfigurationBuilder()
                 .SetBasePath(basePath)
                 .AddJsonFile("appsettings.json", optional: true)
-                .AddJsonFile("appsettings.Development.json", optional: true) // 👈 add this line
+                .AddJsonFile("appsettings.Development.json", optional: true)
                 .Build();
 
             var connectionString = configuration.GetConnectionString("DefaultConnection");
@@ -25,6 +25,7 @@ namespace LoanWise.Persistence.Context
             var optionsBuilder = new DbContextOptionsBuilder<LoanWiseDbContext>();
             optionsBuilder.UseSqlServer(connectionString);
 
+            // Call the parameterless event dispatcher constructor
             return new LoanWiseDbContext(optionsBuilder.Options);
         }
     }

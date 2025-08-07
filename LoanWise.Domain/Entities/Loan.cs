@@ -1,12 +1,15 @@
-﻿using LoanWise.Domain.Enums;
+﻿using LoanWise.Domain.Common;
+using LoanWise.Domain.Enums;
+using LoanWise.Domain.Events;
 using LoanWise.Domain.ValueObjects;
+
 
 namespace LoanWise.Domain.Entities
 {
     /// <summary>
     /// Represents a loan application made by a borrower.
     /// </summary>
-    public class Loan
+    public class Loan : EntityWithEvents
     {
         private readonly List<Funding> _fundings = new();
         private readonly List<Repayment> _repayments = new();
@@ -73,13 +76,17 @@ namespace LoanWise.Domain.Entities
         }
 
         /// <summary>
-        /// Updates loan status to Funded if fully funded and previously Approved.
+        /// Updates loan status to Funded if fully funded and previously Approved,
+        /// and raises a domain event.
         /// </summary>
         public void UpdateFundingStatus()
         {
             if (Status == LoanStatus.Approved && IsFullyFunded())
             {
                 Status = LoanStatus.Funded;
+
+                // Raise domain event
+                AddDomainEvent(new LoanFundedEvent(this.Id, this.BorrowerId, this.Amount.Value));
             }
         }
 
@@ -115,18 +122,16 @@ namespace LoanWise.Domain.Entities
             }
         }
 
-
         public void MarkOverdueRepayments(DateTime currentDate)
         {
             foreach (var repayment in _repayments)
             {
                 if (repayment.IsOverdue(currentDate))
                 {
-                    // Optionally log or raise event
+                    // Optional: raise repayment overdue event here in future
+                    // AddDomainEvent(new RepaymentOverdueEvent(repayment.Id, this.BorrowerId, repayment.Amount.Value));
                 }
             }
         }
-
-
     }
 }

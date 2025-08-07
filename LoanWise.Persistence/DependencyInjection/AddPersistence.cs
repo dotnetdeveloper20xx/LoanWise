@@ -1,5 +1,5 @@
-﻿
-using LoanWise.Application.Common.Interfaces;
+﻿using LoanWise.Application.Common.Interfaces;
+using LoanWise.Infrastructure.Common;
 using LoanWise.Infrastructure.Repositories;
 using LoanWise.Persistence.Context;
 using Microsoft.EntityFrameworkCore;
@@ -15,15 +15,28 @@ namespace LoanWise.Infrastructure.DependencyInjection
     {
         public static IServiceCollection AddPersistence(this IServiceCollection services, IConfiguration configuration)
         {
-            // Register DbContext with SQL Server (or other provider)
-            services.AddDbContext<LoanWiseDbContext>(options =>
-                options.UseSqlServer(configuration.GetConnectionString("DefaultConnection")));
+            // Register domain event dispatcher
+            services.AddScoped<IDomainEventDispatcher, DomainEventDispatcher>();
 
-            // Register the ApplicationDbContext abstraction
+            // Register DbContextOptions for LoanWiseDbContext
+            services.AddDbContext<LoanWiseDbContext>(options =>
+            {
+                options.UseSqlServer(configuration.GetConnectionString("DefaultConnection"));
+            });
+
+            // Register DbContext manually with constructor dependencies
+            services.AddScoped<LoanWiseDbContext>(provider =>
+            {
+                var options = provider.GetRequiredService<DbContextOptions<LoanWiseDbContext>>();
+                var dispatcher = provider.GetRequiredService<IDomainEventDispatcher>();
+                return new LoanWiseDbContext(options, dispatcher);
+            });
+
+            // Register abstraction
             services.AddScoped<IApplicationDbContext>(provider =>
                 provider.GetRequiredService<LoanWiseDbContext>());
 
-            // Register repository implementations
+            // Register repositories
             services.AddScoped<ILoanRepository, LoanRepository>();
 
             return services;

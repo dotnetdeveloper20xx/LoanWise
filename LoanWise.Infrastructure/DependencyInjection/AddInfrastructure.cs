@@ -27,6 +27,8 @@ public static class AddInfrastructureServices
         services.AddHttpContextAccessor();
         services.AddScoped<IUserContext, UserContext>();
 
+        services.AddScoped<IEmailService, SendGridEmailService>();
+
 
         return services;
     }
