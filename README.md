@@ -248,3 +248,142 @@ The core domain entities used in the LoanWise platform. Each entity is modelled 
 ---
 
 
+# 🌐 LoanWise – Feature-Rich MediatR Strategy
+
+The LoanWise application will use MediatR as a centralized messaging and behavior pipeline — not just for CQRS (Commands and Queries), but also for enforcing cross-cutting concerns like validation, logging, performance tracking, caching, and error handling.
+
+---
+
+## 🎯 Why MediatR?
+
+- 🔁 **Decouples** features (Controller doesn’t talk directly to services)
+- ✅ **Centralizes** validation, logging, performance, etc.
+- 🔌 **Extensible** with pipeline behaviors
+- 🧪 **Testable** — each behavior and handler is independently verifiable
+- 🧼 **Clean Code** — aligns with Clean Architecture and DDD
+
+---
+
+## 🧱 Architecture Overview
+
+| Concern         | Component                        | Purpose                                |
+|-----------------|----------------------------------|----------------------------------------|
+| Command         | `ApplyLoanCommand`               | Write operation (changes system state) |
+| Query           | `GetLoanByIdQuery`               | Read-only operation (returns data)     |
+| Validation      | `ValidationBehavior<T>`          | FluentValidation integration            |
+| Logging         | `LoggingBehavior<T>`             | Logs request and response info         |
+| Performance     | `PerformanceBehavior<T>`         | Measures and logs handler execution    |
+| Caching         | `CachingBehavior<T>` (optional)  | Response caching for queries           |
+| Retry/Resilience| `RetryBehavior<T>` (optional)    | Handles transient failures             |
+| Exception Wrap  | `ExceptionHandlingMiddleware`    | Global error handling pipeline         |
+
+---
+
+## 🧩 MediatR Use Cases in LoanWise
+
+### 1. ✅ Commands
+
+Used for system state changes:
+
+- `ApplyLoanCommand`
+- `FundLoanCommand`
+- `ApproveLoanCommand`
+- `MarkRepaymentAsPaidCommand`
+
+Each command has:
+- Request DTO
+- Validator (FluentValidation)
+- Handler with domain logic
+
+### 2. 🔍 Queries
+
+Used to fetch data:
+
+- `GetLoanByIdQuery`
+- `GetUserLoansQuery`
+- `GetOpenLoansQuery`
+
+Each query returns DTOs and is optionally cached.
+
+---
+
+## 🔄 Pipeline Behaviors Strategy
+
+### `ValidationBehavior<TRequest, TResponse>`
+- Runs FluentValidation before executing a handler
+- Returns early if validation fails
+
+### `LoggingBehavior<TRequest, TResponse>`
+- Logs request start, end, and result
+- Captures request/response metadata
+
+### `PerformanceBehavior<TRequest, TResponse>`
+- Measures execution time per request
+- Logs slow requests (>500ms threshold)
+
+### `CachingBehavior<TRequest, TResponse>`
+- [Optional] Caches query responses using IMemoryCache or Redis
+- Useful for idempotent queries (e.g., `GetLoanByIdQuery`)
+
+### `RetryBehavior<TRequest, TResponse>`
+- [Optional] Retries transient failures (e.g., database/network issues)
+- Can use Polly internally
+
+---
+
+## 🛡 Exception Handling Middleware
+
+- Sits in `LoanWise.Api` middleware pipeline
+- Catches unhandled exceptions from all handlers
+- Logs and returns structured error response (ProblemDetails)
+
+```csharp
+app.UseMiddleware<ExceptionHandlingMiddleware>();
+```
+
+---
+
+## 🏗 Folder Structure
+
+```
+LoanWise.Application
+├── Behaviors
+│   ├── ValidationBehavior.cs
+│   ├── LoggingBehavior.cs
+│   ├── PerformanceBehavior.cs
+│   └── CachingBehavior.cs (optional)
+├── Features
+│   └── Loans
+│       ├── Commands
+│       │   └── ApplyLoan
+│       │       ├── ApplyLoanCommand.cs
+│       │       ├── ApplyLoanCommandHandler.cs
+│       │       └── ApplyLoanCommandValidator.cs
+│       └── Queries
+│           └── GetLoanById
+│               ├── GetLoanByIdQuery.cs
+│               ├── GetLoanByIdQueryHandler.cs
+│               └── GetLoanByIdQueryValidator.cs
+```
+
+---
+
+## ✅ Benefits
+
+- Centralized control of application flow
+- Consistent logging, validation, error handling
+- Easily extendable: add caching, telemetry, retries
+- Maintains separation of concerns
+
+---
+
+## 🚀 Next Steps
+
+1. Scaffold pipeline behaviors in `/Behaviors`
+2. Register them in `AddApplication()`
+3. Build `ApplyLoanCommand` end-to-end with validator + handler
+4. Add logging and performance monitoring via behaviors
+5. (Optional) Add caching to query handlers
+
+---
+
