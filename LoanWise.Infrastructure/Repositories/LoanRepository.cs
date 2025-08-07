@@ -68,5 +68,12 @@ namespace LoanWise.Infrastructure.Repositories
                 .ToListAsync(cancellationToken);
         }
 
+        public async Task<IEnumerable<Loan>> GetLoansWithRepaymentsAsync(CancellationToken cancellationToken)
+        {
+            return await _context.Loans
+                .Include(l => l.Repayments)
+                .ToListAsync(cancellationToken);
+        }
+
     }
 }

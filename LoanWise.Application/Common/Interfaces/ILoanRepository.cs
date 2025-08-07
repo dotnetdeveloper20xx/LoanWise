@@ -42,5 +42,8 @@ namespace LoanWise.Application.Common.Interfaces
         /// </summary>
         Task<IEnumerable<Loan>> GetAllIncludingFundingsAsync(CancellationToken cancellationToken);
 
+        Task<IEnumerable<Loan>> GetLoansWithRepaymentsAsync(CancellationToken cancellationToken);
+
+
     }
 }
