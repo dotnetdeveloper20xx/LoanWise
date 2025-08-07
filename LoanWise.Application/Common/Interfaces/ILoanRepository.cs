@@ -13,6 +13,11 @@ namespace LoanWise.Application.Common.Interfaces
         Task AddAsync(Loan loan, CancellationToken cancellationToken);
 
         /// <summary>
+        /// Updates an existing loan in the persistence store.
+        /// </summary>
+        Task UpdateAsync(Loan loan, CancellationToken cancellationToken);
+
+        /// <summary>
         /// Gets a loan by its unique ID, including borrower, fundings, and repayments.
         /// </summary>
         Task<Loan?> GetByIdAsync(Guid loanId, CancellationToken cancellationToken);

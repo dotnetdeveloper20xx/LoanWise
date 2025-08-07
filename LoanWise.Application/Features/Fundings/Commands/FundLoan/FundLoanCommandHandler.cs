@@ -46,8 +46,7 @@ namespace LoanWise.Application.Features.Fundings.Commands.FundLoan
             if (request.Amount > remaining)
                 return ApiResponse<Guid>.FailureResult("Funding exceeds remaining loan amount.");
 
-            var funding = new Funding
-            (
+            var funding = new Funding(
                 id: Guid.NewGuid(),
                 loanId: request.LoanId,
                 lenderId: request.LenderId,
@@ -55,9 +54,16 @@ namespace LoanWise.Application.Features.Fundings.Commands.FundLoan
                 fundedOn: DateTime.UtcNow
             );
 
-            await _fundingRepository.AddAsync(funding, cancellationToken);
+            loan.AddFunding(funding);
+            loan.UpdateFundingStatus();
 
-            _logger.LogInformation("Loan {LoanId} funded by lender {LenderId} with {Amount}", request.LoanId, request.LenderId, request.Amount);
+            await _fundingRepository.AddAsync(funding, cancellationToken);
+            await _loanRepository.UpdateAsync(loan, cancellationToken);
+
+            _logger.LogInformation(
+                "Loan {LoanId} funded by lender {LenderId} with {Amount}. Loan status: {Status}",
+                request.LoanId, request.LenderId, request.Amount, loan.Status
+            );
 
             return ApiResponse<Guid>.SuccessResult(funding.Id, "Funding recorded successfully.");
         }

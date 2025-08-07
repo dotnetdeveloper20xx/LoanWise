@@ -54,5 +54,12 @@ namespace LoanWise.Infrastructure.Repositories
         {
             await _context.SaveChangesAsync(cancellationToken);
         }
+
+        public async Task UpdateAsync(Loan loan, CancellationToken cancellationToken)
+        {
+            _context.Loans.Update(loan);
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+
     }
 }
