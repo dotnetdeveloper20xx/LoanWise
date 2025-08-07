@@ -1,5 +1,5 @@
 ﻿using LoanWise.Application.Common.Interfaces;
-using LoanWise.Application.Common.Models;
+
 using LoanWise.Domain.Entities;
 using LoanWise.Domain.ValueObjects;
 using MediatR;

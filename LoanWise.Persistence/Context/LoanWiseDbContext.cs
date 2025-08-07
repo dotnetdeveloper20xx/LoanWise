@@ -25,7 +25,63 @@ namespace LoanWise.Persistence.Context
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            // Optional: Apply configurations from Fluent API mappings
+            // Loan.Amount
+            modelBuilder.Entity<Loan>(builder =>
+            {
+                builder.OwnsOne(l => l.Amount, amt =>
+                {
+                    amt.Property(a => a.Value).HasColumnName("AmountValue").IsRequired();
+                    amt.Property(a => a.Currency).HasColumnName("AmountCurrency").HasDefaultValue("GBP").IsRequired();
+                });
+            });
+
+            // EscrowTransaction.Amount
+            modelBuilder.Entity<EscrowTransaction>(builder =>
+            {
+                builder.OwnsOne(e => e.Amount, amt =>
+                {
+                    amt.Property(a => a.Value).HasColumnName("EscrowAmountValue").IsRequired();
+                    amt.Property(a => a.Currency).HasColumnName("EscrowAmountCurrency").HasDefaultValue("GBP").IsRequired();
+                });
+            });
+
+            // Funding.Amount + prevent cascade delete
+            modelBuilder.Entity<Funding>(builder =>
+            {
+                builder.OwnsOne(f => f.Amount, amt =>
+                {
+                    amt.Property(a => a.Value).HasColumnName("FundingAmountValue").IsRequired();
+                    amt.Property(a => a.Currency).HasColumnName("FundingAmountCurrency").HasDefaultValue("GBP").IsRequired();
+                });
+
+                builder
+                    .HasOne(f => f.Lender)
+                    .WithMany() // or WithMany(l => l.Fundings) if reverse exists
+                    .HasForeignKey(f => f.LenderId)
+                    .OnDelete(DeleteBehavior.Restrict); // avoid cascade path issue
+            });
+
+            // Repayment.Amount
+            modelBuilder.Entity<Repayment>(builder =>
+            {
+                builder.OwnsOne(r => r.Amount, amt =>
+                {
+                    amt.Property(a => a.Value).HasColumnName("RepaymentAmountValue").IsRequired();
+                    amt.Property(a => a.Currency).HasColumnName("RepaymentAmountCurrency").HasDefaultValue("GBP").IsRequired();
+                });
+            });
+
+            // CreditProfile
+            modelBuilder.Entity<CreditProfile>(builder =>
+            {
+                builder.HasKey(c => c.UserId);
+
+                builder
+                    .HasOne(c => c.User)
+                    .WithOne()
+                    .HasForeignKey<CreditProfile>(c => c.UserId);
+            });
+
             base.OnModelCreating(modelBuilder);
         }
     }

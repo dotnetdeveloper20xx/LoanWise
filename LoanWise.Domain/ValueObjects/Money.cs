@@ -18,6 +18,8 @@ namespace LoanWise.Domain.ValueObjects
         /// </summary>
         public string Currency { get; }
 
+        private Money() { } // required by EF Core
+
         /// <summary>
         /// Creates a new instance of Money.
         /// </summary>

@@ -1,10 +1,12 @@
 using LoanWise.Application;
+using LoanWise.Application.DependencyInjection;
+using LoanWise.Infrastructure.DependencyInjection;
+using LoanWise.Persistence.Context;
+using LoanWise.Persistence.Setup;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
-using LoanWise.Infrastructure.DependencyInjection;
-using LoanWise.Application.DependencyInjection;
 
 
 
@@ -84,5 +86,14 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+
+
+using (var scope = app.Services.CreateScope())
+{
+    var dbContext = scope.ServiceProvider.GetRequiredService<LoanWiseDbContext>();
+    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+    await DbInitializer.InitializeAsync(dbContext, logger);
+}
+
 
 app.Run();
