@@ -115,5 +115,18 @@ namespace LoanWise.Domain.Entities
             }
         }
 
+
+        public void MarkOverdueRepayments(DateTime currentDate)
+        {
+            foreach (var repayment in _repayments)
+            {
+                if (repayment.IsOverdue(currentDate))
+                {
+                    // Optionally log or raise event
+                }
+            }
+        }
+
+
     }
 }
