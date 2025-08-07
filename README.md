@@ -388,80 +388,102 @@ LoanWise.Application
 ---
 
 
-# ApplyLoanCommand Flow – Summary
 
-The `ApplyLoanCommand` is part of the **LoanWise CQRS infrastructure** and handles the process of applying for a new loan.
+# LoanWise Feature Summary – Implemented Flows Overview
 
-## 🧾 Flow Overview
+The LoanWise system follows **CQRS + Clean Architecture** to manage the full lifecycle of a peer-to-peer lending system. Below is a summary of the major backend features we have implemented so far, including their purpose and flow.
 
-1. **API Layer**
-   - The borrower submits a loan application via the API.
-   - The data is received as an `ApplyLoanRequestDto`.
-   - This DTO is mapped to an `ApplyLoanCommand` and dispatched via **MediatR**.
+---
 
-2. **Pipeline Behaviors**
-   - **ValidationBehavior**: Validates the request using `ApplyLoanCommandValidator`:
-     - Amount must be positive
-     - Duration must be within limits
-     - BorrowerId must be provided
-   - **LoggingBehavior**: Logs incoming command and outgoing result.
-   - **PerformanceBehavior**: Measures execution time for monitoring.
+## ✅ 1. ApplyLoanCommand – Borrower Loan Application
 
-3. **Handler Execution**
-   - `ApplyLoanCommandHandler` is triggered.
-   - It creates a new `Loan` domain entity using:
-     - `Amount` (wrapped as `Money` value object)
-     - `DurationInMonths`
-     - `Purpose`
-   - The loan is saved using `ILoanRepository.AddAsync()`.
+### 🧾 Flow Overview
+- A borrower applies for a loan via `POST /api/loans/apply`.
+- The request is handled via `ApplyLoanCommand` (MediatR).
+- Validation ensures amount, duration, and borrower ID are valid.
+- Handler persists a new `Loan` entity using `ILoanRepository`.
+- Returns an `ApiResponse<Guid>` with the loan ID.
 
-4. **Response**
-   - A success log is written.
-   - The handler returns an `ApiResponse<Guid>` containing the loan ID.
+### ✅ Benefits
+- Clean input validation
+- Decoupled persistence logic
+- Supports pipeline behaviors (logging, timing)
 
-## ✅ Benefits of This Flow
+---
 
-- Clean separation of concerns (API → Validation → Business → Persistence)
-- Strong validation and feedback through `ApiResponse<T>`
-- Observability with logging and performance metrics
-- Fully testable and aligned with **Clean Architecture** and **MediatR** best practices
+## ✅ 2. FundLoanCommand – Lender Funds a Loan
+
+### 🧾 Flow Overview
+- A lender sends a funding request to `/api/fundings/{loanId}`.
+- The request is transformed into `FundLoanCommand`.
+- Validation checks loan ID, lender ID, and amount.
+- The handler checks existing funding and prevents overfunding.
+- A `Funding` record is created and persisted.
+- If the loan is fully funded, status is updated to `LoanStatus.Funded`.
+
+### ✅ Benefits
+- Business rules enforced centrally
+- Automatically updates loan status
+- Supports event-driven evolution
+
+---
+
+## ✅ 3. GetOpenLoansQuery – Lender Browses Fundable Loans
+
+### 🧾 Flow Overview
+- API endpoint: `GET /api/loans/open`
+- Returns loans with `LoanStatus.Approved` and not yet fully funded.
+- Uses `LoanSummaryDto` for projection.
+- AutoMapper is used to map from `Loan` entity.
+
+### ✅ Benefits
+- Cleanly separates query logic and projection
+- Reusable projection DTOs
+- Ideal for public loan browsing interface
+
+---
+
+## ✅ 4. GetLoansByBorrowerQuery – Borrower Views Their Loans
+
+### 🧾 Flow Overview
+- API endpoint: `GET /api/loans/my?borrowerId={id}`
+- Fetches all loans tied to the borrower
+- Projects to `BorrowerLoanDto` via AutoMapper
+- Includes status, amount, duration, and funding progress
+
+### ✅ Benefits
+- Personal dashboard support
+- Respects domain boundaries (no overexposure)
+- Easily extendable for borrower filters
+
+---
+
+## ✅ 5. GetFundingsByLenderQuery – Lender Views Contributions
+
+### 🧾 Flow Overview
+- API endpoint: `GET /api/fundings/my?lenderId={id}`
+- Loads all loans with contributions by the lender
+- Uses AutoMapper + AfterMap to calculate `AmountFundedByYou`
+- Returns `LenderFundingDto` with funding status and purpose
+
+### ✅ Benefits
+- Fully encapsulated mapping with AutoMapper
+- Minimal handler logic (clean separation)
+- Supports financial overview per lender
+
+---
+
+## 🏁 Summary
+
+These implemented features provide the foundation for:
+- Secure lending lifecycle workflows
+- Clean projection and transformation logic
+- Clear domain enforcement and extensibility
+
+They are aligned with:
+- ✅ Clean Architecture
+- ✅ MediatR-based CQRS
+- ✅ AutoMapper for mapping
+- ✅ FluentValidation + pipeline behaviors
 
 
-# FundLoanCommand Flow – Summary
-
-The `FundLoanCommand` is part of the **LoanWise CQRS infrastructure** and manages the process of funding a loan by a lender.
-
-## 🧾 Flow Overview
-
-1. **API Layer**
-   - A lender submits a funding request via the `/api/fundings/{loanId}` endpoint.
-   - The request body is received as a `FundLoanDto`, containing the lender ID and amount.
-   - This DTO is mapped to a `FundLoanCommand` and dispatched via **MediatR**.
-
-2. **Pipeline Behaviors**
-   - **ValidationBehavior**: Validates the request using `FundLoanCommandValidator`:
-     - Amount must be greater than zero
-     - LoanId and LenderId must be provided
-   - **LoggingBehavior**: Logs the funding request and the response result.
-   - **PerformanceBehavior**: Times the execution for performance monitoring.
-
-3. **Handler Execution**
-   - `FundLoanCommandHandler` is invoked.
-   - It first loads the loan via `ILoanRepository.GetByIdAsync()`.
-   - It calculates the total amount already funded for the loan.
-   - If the funding amount is valid and doesn't exceed the remaining balance:
-     - A new `Funding` entity is created with `Money` value object and `fundedOn` timestamp.
-     - The funding is saved using `IFundingRepository.AddAsync()`.
-     - Optionally, if the loan becomes fully funded, it can be marked as such.
-
-4. **Response**
-   - A success log entry is recorded.
-   - The handler returns an `ApiResponse<Guid>` containing the funding ID.
-
-## ✅ Benefits of This Flow
-
-- Cleanly separates funding logic from API/controller concerns
-- Leverages validation and pipeline behaviors for consistency and traceability
-- Enforces business rules like "no overfunding" within the handler
-- Fully testable and extensible for status tracking (e.g. mark loan as funded)
-- Aligned with **Clean Architecture** and **MediatR** principles
