@@ -1,10 +1,28 @@
 {
   "info": {
-    "name": "LoanWise API Collection",
-    "_postman_id": "loanwise-api-collection-id",
-    "description": "Postman collection for testing LoanWise API endpoints",
+    "name": "LoanWise Full API Collection",
+    "_postman_id": "loanwise-full-api-collection-id",
+    "description": "Complete Postman collection for testing all LoanWise endpoints",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:5000"
+    },
+    {
+      "key": "token",
+      "value": ""
+    },
+    {
+      "key": "loanId",
+      "value": ""
+    },
+    {
+      "key": "repaymentId",
+      "value": ""
+    }
+  ],
   "item": [
     {
       "name": "Auth - Register",
@@ -17,19 +35,19 @@
           }
         ],
         "url": {
-          "raw": "{{base_url}}/api/auth/register",
+          "raw": "{{base_url}}/api/Auth/register",
           "host": [
             "{{base_url}}"
           ],
           "path": [
             "api",
-            "auth",
+            "Auth",
             "register"
           ]
         },
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"fullName\": \"John Doe\",\n  \"email\": \"john@example.com\",\n  \"password\": \"demo123\",\n  \"role\": \"Borrower\"\n}"
+          "raw": "{\n  \"fullName\": \"Demo User\",\n  \"email\": \"demo@example.com\",\n  \"password\": \"demo123\",\n  \"role\": \"Borrower\"\n}"
         }
       }
     },
@@ -44,24 +62,24 @@
           }
         ],
         "url": {
-          "raw": "{{base_url}}/api/auth/login",
+          "raw": "{{base_url}}/api/Auth/login",
           "host": [
             "{{base_url}}"
           ],
           "path": [
             "api",
-            "auth",
+            "Auth",
             "login"
           ]
         },
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"email\": \"john@example.com\",\n  \"password\": \"demo123\"\n}"
+          "raw": "{\n  \"email\": \"demo@example.com\",\n  \"password\": \"demo123\"\n}"
         }
       }
     },
     {
-      "name": "Get My Profile",
+      "name": "User - Profile",
       "request": {
         "method": "GET",
         "header": [
@@ -84,37 +102,6 @@
       }
     },
     {
-      "name": "Borrower - Apply for Loan",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          },
-          {
-            "key": "Authorization",
-            "value": "Bearer {{token}}"
-          }
-        ],
-        "url": {
-          "raw": "{{base_url}}/api/loans/apply",
-          "host": [
-            "{{base_url}}"
-          ],
-          "path": [
-            "api",
-            "loans",
-            "apply"
-          ]
-        },
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"amount\": 10000,\n  \"durationInMonths\": 12,\n  \"purpose\": \"HomeImprovement\",\n  \"description\": \"Need funds for renovation\",\n  \"monthlyIncome\": 3000\n}"
-        }
-      }
-    },
-    {
       "name": "Borrower - My Loans",
       "request": {
         "method": "GET",
@@ -133,6 +120,54 @@
             "api",
             "loans",
             "my"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Borrower - Dashboard",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/loans/borrowers/dashboard",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "loans",
+            "borrowers",
+            "dashboard"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Admin - Loan Stats",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/loans/loans/stats",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "loans",
+            "loans",
+            "stats"
           ]
         }
       }
@@ -166,34 +201,33 @@
         "method": "POST",
         "header": [
           {
-            "key": "Content-Type",
-            "value": "application/json"
-          },
-          {
             "key": "Authorization",
             "value": "Bearer {{token}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
           }
         ],
         "url": {
-          "raw": "{{base_url}}/api/loans/fund/{{loanId}}",
+          "raw": "{{base_url}}/api/fundings/{{loanId}}",
           "host": [
             "{{base_url}}"
           ],
           "path": [
             "api",
-            "loans",
-            "fund",
+            "fundings",
             "{{loanId}}"
           ]
         },
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"amount\": 500\n}"
+          "raw": "{\n  \"amount\": 1000\n}"
         }
       }
     },
     {
-      "name": "Borrower - Repayments",
+      "name": "Lender - Portfolio Summary",
       "request": {
         "method": "GET",
         "header": [
@@ -203,26 +237,20 @@
           }
         ],
         "url": {
-          "raw": "{{base_url}}/api/loans/repayments?loanId={{loanId}}",
+          "raw": "{{base_url}}/api/lenders/portfolio",
           "host": [
             "{{base_url}}"
           ],
           "path": [
             "api",
-            "loans",
-            "repayments"
-          ],
-          "query": [
-            {
-              "key": "loanId",
-              "value": "{{loanId}}"
-            }
+            "lenders",
+            "portfolio"
           ]
         }
       }
     },
     {
-      "name": "Borrower - Make Repayment",
+      "name": "Loan - Disburse",
       "request": {
         "method": "POST",
         "header": [
@@ -232,36 +260,90 @@
           }
         ],
         "url": {
-          "raw": "{{base_url}}/api/loans/repay/{{repaymentId}}",
+          "raw": "{{base_url}}/api/loans/{{loanId}}/disburse",
           "host": [
             "{{base_url}}"
           ],
           "path": [
             "api",
             "loans",
-            "repay",
-            "{{repaymentId}}"
+            "{{loanId}}",
+            "disburse"
           ]
         }
       }
-    }
-  ],
-  "variable": [
-    {
-      "key": "base_url",
-      "value": "http://localhost:5000"
     },
     {
-      "key": "token",
-      "value": ""
+      "name": "Loan - Repayments by LoanId",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/loans/{{loanId}}/repayments",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "loans",
+            "{{loanId}}",
+            "repayments"
+          ]
+        }
+      }
     },
     {
-      "key": "loanId",
-      "value": ""
+      "name": "Repayments - Make Payment",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/repayments/{{repaymentId}}/pay",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "repayments",
+            "{{repaymentId}}",
+            "pay"
+          ]
+        }
+      }
     },
     {
-      "key": "repaymentId",
-      "value": ""
+      "name": "Admin - Check Overdue Repayments",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/admin/repayments/check-overdue",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "admin",
+            "repayments",
+            "check-overdue"
+          ]
+        }
+      }
     }
   ]
 }
