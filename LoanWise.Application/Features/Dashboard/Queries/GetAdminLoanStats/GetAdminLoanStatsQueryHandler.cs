@@ -1,5 +1,4 @@
 ﻿using LoanWise.Application.Common.Interfaces;
-
 using LoanWise.Application.DTOs.Dashboard;
 using LoanWise.Domain.Enums;
 using MediatR;
@@ -27,7 +26,8 @@ namespace LoanWise.Application.Features.Dashboard.Queries.GetAdminLoanStats
                 FundedCount = loans.Count(l => l.Status == LoanStatus.Funded),
                 DisbursedCount = loans.Count(l => l.Status == LoanStatus.Disbursed),
                 CompletedCount = loans.Count(l => l.Status == LoanStatus.Completed),
-                OverdueRepaymentCount = loans.SelectMany(l => l.Repayments)
+                OverdueRepaymentCount = loans
+                    .SelectMany(l => l.Repayments)
                     .Count(r => !r.IsPaid && r.DueDate < DateTime.UtcNow)
             };
 

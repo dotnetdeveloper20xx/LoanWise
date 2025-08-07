@@ -1,13 +1,14 @@
-﻿
-using LoanWise.Application.Features.Fundings.Commands.FundLoan;
+﻿using LoanWise.Application.Features.Fundings.Commands.FundLoan;
 using LoanWise.Application.Features.Fundings.DTOs;
 using LoanWise.Application.Features.Fundings.Queries.GetFundingsByLender;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using StoreBoost.Application.Common.Models;
 
 namespace LoanWise.Api.Controllers
 {
+    [Authorize(Roles = "Lender")] // Only authenticated lenders can access this controller
     [ApiController]
     [Route("api/fundings")]
     public class FundingController : ControllerBase
@@ -22,6 +23,8 @@ namespace LoanWise.Api.Controllers
         /// <summary>
         /// Allows a lender to fund a loan.
         /// </summary>
+        /// <param name="loanId">ID of the loan to fund</param>
+        /// <param name="request">LenderId and amount</param>
         [HttpPost("{loanId}")]
         public async Task<IActionResult> FundLoan(Guid loanId, [FromBody] FundLoanDto request)
         {
@@ -44,6 +47,5 @@ namespace LoanWise.Api.Controllers
             var result = await _mediator.Send(new GetFundingsByLenderQuery(lenderId));
             return result.Success ? Ok(result) : BadRequest(result);
         }
-
     }
 }

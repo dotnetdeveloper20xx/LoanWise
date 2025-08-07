@@ -19,6 +19,7 @@ namespace LoanWise.Persistence.Context
         public DbSet<SystemEvent> SystemEvents => Set<SystemEvent>();
         public DbSet<CreditProfile> CreditProfiles => Set<CreditProfile>();
         public DbSet<EscrowTransaction> EscrowTransactions => Set<EscrowTransaction>();
+        public DbSet<User> Users { get; set; } = default!;
 
         public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
             => base.SaveChangesAsync(cancellationToken);

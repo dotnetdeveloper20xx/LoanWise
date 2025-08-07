@@ -9,15 +9,24 @@ namespace LoanWise.Application.Features.Dashboard.Queries.GetBorrowerDashboard
     public class GetBorrowerDashboardQueryHandler : IRequestHandler<GetBorrowerDashboardQuery, ApiResponse<BorrowerDashboardDto>>
     {
         private readonly ILoanRepository _loanRepository;
+        private readonly IUserContext _userContext;
 
-        public GetBorrowerDashboardQueryHandler(ILoanRepository loanRepository)
+        public GetBorrowerDashboardQueryHandler(
+            ILoanRepository loanRepository,
+            IUserContext userContext)
         {
             _loanRepository = loanRepository;
+            _userContext = userContext;
         }
 
         public async Task<ApiResponse<BorrowerDashboardDto>> Handle(GetBorrowerDashboardQuery request, CancellationToken cancellationToken)
         {
-            var loans = await _loanRepository.GetLoansByBorrowerAsync(request.BorrowerId, cancellationToken);
+            if (!_userContext.UserId.HasValue)
+                return ApiResponse<BorrowerDashboardDto>.FailureResult("Unauthorized: missing user ID");
+
+            var borrowerId = _userContext.UserId.Value;
+
+            var loans = await _loanRepository.GetLoansByBorrowerAsync(borrowerId, cancellationToken);
 
             var totalLoans = loans.Count();
             var fundedLoans = loans.Count(l => l.Status == LoanStatus.Funded || l.Status == LoanStatus.Disbursed || l.Status == LoanStatus.Completed);
@@ -30,7 +39,6 @@ namespace LoanWise.Application.Features.Dashboard.Queries.GetBorrowerDashboard
                 .ToList();
 
             var nextRepayment = allUnpaidRepayments.FirstOrDefault();
-
             var totalOutstanding = allUnpaidRepayments.Sum(r => r.Amount.Value);
 
             var dto = new BorrowerDashboardDto

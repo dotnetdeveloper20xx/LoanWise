@@ -1,31 +1,28 @@
-
-using LoanWise.Application.DependencyInjection;
+﻿using LoanWise.Application.DependencyInjection;
 using LoanWise.Infrastructure.DependencyInjection;
-using LoanWise.Persistence.Context;
-using LoanWise.Persistence.Setup;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
 
-
-
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container
+// ─────────────────────────────────────────────
+// Register Services
+// ─────────────────────────────────────────────
 
-// Application, Infrastructure, and Persistence DI
+// Clean Architecture layers
 builder.Services
     .AddApplication()
     .AddInfrastructure(builder.Configuration)
     .AddPersistence(builder.Configuration);
 
-// Controllers and OpenAPI
+// Controllers and Swagger
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
+
 builder.Services.AddSwaggerGen(options =>
 {
-    // Optional: Add JWT support in Swagger UI
     options.SwaggerDoc("v1", new OpenApiInfo { Title = "LoanWise API", Version = "v1" });
 
     var jwtScheme = new OpenApiSecurityScheme
@@ -35,7 +32,7 @@ builder.Services.AddSwaggerGen(options =>
         Scheme = "Bearer",
         BearerFormat = "JWT",
         In = ParameterLocation.Header,
-        Description = "JWT Authorization header using the Bearer scheme.",
+        Description = "Enter 'Bearer {your token}'",
         Reference = new OpenApiReference
         {
             Type = ReferenceType.SecurityScheme,
@@ -53,18 +50,23 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
-// Authentication (JWT)
+// ─────────────────────────────────────────────
+// JWT Authentication
+// ─────────────────────────────────────────────
+
+var jwtKey = builder.Configuration["Jwt:Key"] ?? "super-secret-key";
+var keyBytes = Encoding.UTF8.GetBytes(jwtKey);
+
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
-        var key = Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"] ?? "super-secret-key");
         options.TokenValidationParameters = new TokenValidationParameters
         {
-            ValidateIssuer = false,
-            ValidateAudience = false,
+            ValidateIssuer = false, // Set to true if using issuer validation
+            ValidateAudience = false, // Set to true if using audience validation
             ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
-            IssuerSigningKey = new SymmetricSecurityKey(key)
+            IssuerSigningKey = new SymmetricSecurityKey(keyBytes)
         };
     });
 
@@ -72,7 +74,9 @@ builder.Services.AddAuthorization();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline
+// ─────────────────────────────────────────────
+// Configure HTTP Pipeline
+// ─────────────────────────────────────────────
 
 if (app.Environment.IsDevelopment())
 {
@@ -80,24 +84,23 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI(options =>
     {
         options.SwaggerEndpoint("/swagger/v1/swagger.json", "LoanWise API v1");
-        options.RoutePrefix = string.Empty; // makes Swagger UI default page (localhost:5000/)
+        options.RoutePrefix = string.Empty;
     });
 }
 
 app.UseHttpsRedirection();
 
-app.UseAuthentication();
+app.UseAuthentication(); // Must be before UseAuthorization
 app.UseAuthorization();
 
 app.MapControllers();
 
-
+// Optional: DB seeding logic
 //using (var scope = app.Services.CreateScope())
 //{
 //    var dbContext = scope.ServiceProvider.GetRequiredService<LoanWiseDbContext>();
 //    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
 //    await DbInitializer.InitializeAsync(dbContext, logger);
 //}
-
 
 app.Run();

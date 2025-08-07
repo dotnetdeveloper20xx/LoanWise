@@ -1,10 +1,11 @@
-﻿
-using LoanWise.Application.Features.Repayments.Commands.CheckOverdueRepayments;
+﻿using LoanWise.Application.Features.Repayments.Commands.CheckOverdueRepayments;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace LoanWise.Api.Controllers
 {
+    [Authorize(Roles = "Admin")] // Only admins can access this controller
     [ApiController]
     [Route("api/admin")]
     public class AdminController : ControllerBase

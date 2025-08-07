@@ -10,19 +10,26 @@ namespace LoanWise.Application.Features.Loans.Queries.GetLoansByBorrower
     {
         private readonly ILoanRepository _loanRepository;
         private readonly IMapper _mapper;
+        private readonly IUserContext _userContext;
 
         public GetLoansByBorrowerQueryHandler(
             ILoanRepository loanRepository,
-            IMapper mapper)
+            IMapper mapper,
+            IUserContext userContext)
         {
             _loanRepository = loanRepository;
             _mapper = mapper;
+            _userContext = userContext;
         }
 
         public async Task<ApiResponse<List<BorrowerLoanDto>>> Handle(GetLoansByBorrowerQuery request, CancellationToken cancellationToken)
         {
-            var loans = await _loanRepository.GetLoansByBorrowerAsync(request.BorrowerId, cancellationToken);
+            if (!_userContext.UserId.HasValue)
+                return ApiResponse<List<BorrowerLoanDto>>.FailureResult("Unauthorized: missing user ID");
 
+            var borrowerId = _userContext.UserId.Value;
+
+            var loans = await _loanRepository.GetLoansByBorrowerAsync(borrowerId, cancellationToken);
             var result = _mapper.Map<List<BorrowerLoanDto>>(loans);
 
             return ApiResponse<List<BorrowerLoanDto>>.SuccessResult(result);

@@ -23,12 +23,6 @@
             new(success: true, data: data, message: message);
 
         /// <summary>
-        /// Creates a successful response with no data.
-        /// </summary>
-        public static ApiResponse<T> SuccessResult(string? message = null) =>
-            new(success: true, data: default, message: message);
-
-        /// <summary>
         /// Creates a failed response with an error message.
         /// </summary>
         public static ApiResponse<T> FailureResult(string message) =>

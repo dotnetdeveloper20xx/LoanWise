@@ -39,33 +39,27 @@ namespace LoanWise.Domain.Entities
         public UserRole Role { get; private set; }
 
         /// <summary>
-        /// Navigation property to loans this user has applied for (as borrower).
+        /// Mock KYC / credit score value.
         /// </summary>
+        public int? CreditScore { get; private set; }
+
+        /// <summary>
+        /// Risk tier derived from credit score.
+        /// </summary>
+        public RiskTier? Tier { get; private set; }
+
+        /// <summary>
+        /// Indicates whether mock KYC has been simulated.
+        /// </summary>
+        public bool KycVerified => CreditScore.HasValue;
+
         public IReadOnlyCollection<Loan> Loans => _loans.AsReadOnly();
-
-        /// <summary>
-        /// Navigation property to fundings this user made (as lender).
-        /// </summary>
         public IReadOnlyCollection<Funding> Fundings => _fundings.AsReadOnly();
-
-        /// <summary>
-        /// Verification documents uploaded by the user (e.g., payslips).
-        /// </summary>
         public IReadOnlyCollection<VerificationDocument> Documents => _documents.AsReadOnly();
-
-        /// <summary>
-        /// Audit or notification events associated with this user.
-        /// </summary>
         public IReadOnlyCollection<SystemEvent> Events => _events.AsReadOnly();
 
-        /// <summary>
-        /// Required by EF Core for materialization.
-        /// </summary>
         private User() { }
 
-        /// <summary>
-        /// Creates a new user with required fields.
-        /// </summary>
         public User(Guid id, string fullName, string email, string passwordHash, UserRole role)
         {
             Id = id;
@@ -75,30 +69,39 @@ namespace LoanWise.Domain.Entities
             Role = role;
         }
 
-        /// <summary>
-        /// Adds a verification document to the user.
-        /// </summary>
-        public void AddDocument(VerificationDocument document)
+        public void AddDocument(VerificationDocument document) => _documents.Add(document);
+        public void AddEvent(SystemEvent systemEvent) => _events.Add(systemEvent);
+
+        public void SimulateKyc()
         {
-            _documents.Add(document);
+            CreditScore = new Random().Next(600, 750);
+            Tier = CreditScore switch
+            {
+                < 620 => RiskTier.High,
+                < 700 => RiskTier.Medium,
+                _ => RiskTier.Low
+            };
         }
 
-        /// <summary>
-        /// Adds a system event (audit/log/notification) related to this user.
-        /// </summary>
-        public void AddEvent(SystemEvent systemEvent)
+        public void AssignCreditProfile(int score, RiskTier tier)
         {
-            _events.Add(systemEvent);
+            CreditScore = score;
+            Tier = tier;
         }
+
+        public void SetPassword(string hash)
+        {
+            PasswordHash = hash;
+        }
+
     }
 
-    /// <summary>
-    /// Roles assigned to users in the platform.
-    /// </summary>
     public enum UserRole
     {
         Borrower = 0,
         Lender = 1,
         Admin = 2
     }
+
+    
 }

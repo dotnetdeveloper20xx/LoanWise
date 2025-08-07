@@ -1,10 +1,11 @@
-﻿
-using LoanWise.Application.Features.Repayments.Commands.MakeRepayment;
+﻿using LoanWise.Application.Features.Repayments.Commands.MakeRepayment;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace LoanWise.Api.Controllers
 {
+    [Authorize(Roles = "Borrower")] // Only borrowers can mark repayments
     [ApiController]
     [Route("api/repayments")]
     public class RepaymentController : ControllerBase
