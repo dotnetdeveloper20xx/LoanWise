@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace LoanWise.Application.Features.Dashboard.DTOs
+namespace LoanWise.Application.DTOs.Dashboard
 {
     public class BorrowerDashboardDto
     {

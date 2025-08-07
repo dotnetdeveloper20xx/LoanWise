@@ -1,4 +1,5 @@
 ﻿
+using LoanWise.Application.Features.Dashboard.Queries.GetAdminLoanStats;
 using LoanWise.Application.Features.Dashboard.Queries.GetBorrowerDashboard;
 using LoanWise.Application.Features.Loans.Commands.ApplyLoan;
 using LoanWise.Application.Features.Loans.Commands.DisburseLoan;
@@ -125,6 +126,18 @@ namespace LoanWise.Api.Controllers
             var response = await _mediator.Send(new GetBorrowerDashboardQuery(borrowerId));
             return response.Success ? Ok(response) : BadRequest(response);
         }
+
+        /// <summary>
+        /// Returns admin-level loan statistics grouped by status.
+        /// </summary>
+        [HttpGet("loans/stats")]
+        public async Task<IActionResult> GetLoanStats()
+        {
+            var result = await _mediator.Send(new GetAdminLoanStatsQuery());
+            return result.Success ? Ok(result) : BadRequest(result);
+        }
+
+
 
     }
 }

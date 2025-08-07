@@ -1,5 +1,5 @@
 ﻿using LoanWise.Application.Common.Interfaces;
-using LoanWise.Application.Features.Dashboard.DTOs;
+using LoanWise.Application.DTOs.Dashboard;
 using LoanWise.Domain.Enums;
 using MediatR;
 using StoreBoost.Application.Common.Models;

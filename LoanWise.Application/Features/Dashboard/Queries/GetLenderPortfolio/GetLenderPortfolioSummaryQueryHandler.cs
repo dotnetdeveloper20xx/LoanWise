@@ -1,5 +1,5 @@
 ﻿using LoanWise.Application.Common.Interfaces;
-using LoanWise.Application.DTOs;
+using LoanWise.Application.DTOs.Dashboard;
 using MediatR;
 using StoreBoost.Application.Common.Models;
 

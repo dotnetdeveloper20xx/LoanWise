@@ -44,6 +44,7 @@ namespace LoanWise.Application.Common.Interfaces
 
         Task<IEnumerable<Loan>> GetLoansWithRepaymentsAsync(CancellationToken cancellationToken);
 
+        Task<IEnumerable<Loan>> GetAllIncludingRepaymentsAsync(CancellationToken cancellationToken);
 
     }
 }
