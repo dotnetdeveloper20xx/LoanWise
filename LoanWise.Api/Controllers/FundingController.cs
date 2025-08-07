@@ -1,5 +1,6 @@
 ﻿
 using LoanWise.Application.Features.Fundings.Commands.FundLoan;
+using LoanWise.Application.Features.Fundings.DTOs;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using StoreBoost.Application.Common.Models;
