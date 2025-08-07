@@ -387,3 +387,14 @@ LoanWise.Application
 
 ---
 
+# 🧾 ApplyLoanCommand Flow – Summary
+
+The `ApplyLoanCommand` is part of the LoanWise CQRS infrastructure and handles the process of applying for a new loan. When a borrower submits a loan application via the API, their request is first received as a `ApplyLoanRequestDto`. This data is then mapped to a `ApplyLoanCommand` and sent through the MediatR pipeline.
+
+Before the command reaches its handler, it passes through the `ValidationBehavior` where `ApplyLoanCommandValidator` ensures the request is valid — for example, checking the amount is positive, duration is within acceptable bounds, and borrower ID is provided.
+
+Once validated, the request is logged by the `LoggingBehavior` and timed by the `PerformanceBehavior`. These behaviors ensure observability and help monitor system performance. 
+
+The `ApplyLoanCommandHandler` is then executed, which constructs a new `Loan` domain entity using the provided values (amount, duration, purpose) and persists it using `ILoanRepository.AddAsync`. After saving, the handler logs a success message and returns the unique ID of the created loan to the API layer.
+
+This structured flow ensures a clean separation of concerns, robust input validation, logging, performance tracking, and testability — all aligned with Clean Architecture and MediatR best practices.
