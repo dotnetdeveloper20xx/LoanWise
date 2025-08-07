@@ -387,14 +387,42 @@ LoanWise.Application
 
 ---
 
-# 🧾 ApplyLoanCommand Flow – Summary
 
-The `ApplyLoanCommand` is part of the LoanWise CQRS infrastructure and handles the process of applying for a new loan. When a borrower submits a loan application via the API, their request is first received as a `ApplyLoanRequestDto`. This data is then mapped to a `ApplyLoanCommand` and sent through the MediatR pipeline.
+# ApplyLoanCommand Flow – Summary
 
-Before the command reaches its handler, it passes through the `ValidationBehavior` where `ApplyLoanCommandValidator` ensures the request is valid — for example, checking the amount is positive, duration is within acceptable bounds, and borrower ID is provided.
+The `ApplyLoanCommand` is part of the **LoanWise CQRS infrastructure** and handles the process of applying for a new loan.
 
-Once validated, the request is logged by the `LoggingBehavior` and timed by the `PerformanceBehavior`. These behaviors ensure observability and help monitor system performance. 
+## 🧾 Flow Overview
 
-The `ApplyLoanCommandHandler` is then executed, which constructs a new `Loan` domain entity using the provided values (amount, duration, purpose) and persists it using `ILoanRepository.AddAsync`. After saving, the handler logs a success message and returns the unique ID of the created loan to the API layer.
+1. **API Layer**
+   - The borrower submits a loan application via the API.
+   - The data is received as an `ApplyLoanRequestDto`.
+   - This DTO is mapped to an `ApplyLoanCommand` and dispatched via **MediatR**.
 
-This structured flow ensures a clean separation of concerns, robust input validation, logging, performance tracking, and testability — all aligned with Clean Architecture and MediatR best practices.
+2. **Pipeline Behaviors**
+   - **ValidationBehavior**: Validates the request using `ApplyLoanCommandValidator`:
+     - Amount must be positive
+     - Duration must be within limits
+     - BorrowerId must be provided
+   - **LoggingBehavior**: Logs incoming command and outgoing result.
+   - **PerformanceBehavior**: Measures execution time for monitoring.
+
+3. **Handler Execution**
+   - `ApplyLoanCommandHandler` is triggered.
+   - It creates a new `Loan` domain entity using:
+     - `Amount` (wrapped as `Money` value object)
+     - `DurationInMonths`
+     - `Purpose`
+   - The loan is saved using `ILoanRepository.AddAsync()`.
+
+4. **Response**
+   - A success log is written.
+   - The handler returns an `ApiResponse<Guid>` containing the loan ID.
+
+## ✅ Benefits of This Flow
+
+- Clean separation of concerns (API → Validation → Business → Persistence)
+- Strong validation and feedback through `ApiResponse<T>`
+- Observability with logging and performance metrics
+- Fully testable and aligned with **Clean Architecture** and **MediatR** best practices
+
