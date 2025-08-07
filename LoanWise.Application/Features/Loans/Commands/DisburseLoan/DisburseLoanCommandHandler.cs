@@ -6,7 +6,7 @@ using StoreBoost.Application.Common.Models;
 namespace LoanWise.Application.Features.Loans.Commands.DisburseLoan
 {
     /// <summary>
-    /// Handles disbursement of a fully funded loan.
+    /// Handles disbursement of a fully funded loan and generates repayment schedule.
     /// </summary>
     public class DisburseLoanCommandHandler : IRequestHandler<DisburseLoanCommand, ApiResponse<Guid>>
     {
@@ -34,11 +34,12 @@ namespace LoanWise.Application.Features.Loans.Commands.DisburseLoan
             try
             {
                 loan.Disburse();
+                loan.GenerateRepaymentSchedule(); // Generate monthly repayment schedule
 
                 await _loanRepository.UpdateAsync(loan, cancellationToken);
 
-                _logger.LogInformation("Loan {LoanId} marked as Disbursed", loan.Id);
-                return ApiResponse<Guid>.SuccessResult(loan.Id, "Loan disbursed successfully.");
+                _logger.LogInformation("Loan {LoanId} disbursed and repayment schedule generated.", loan.Id);
+                return ApiResponse<Guid>.SuccessResult(loan.Id, "Loan disbursed successfully with repayment schedule.");
             }
             catch (InvalidOperationException ex)
             {

@@ -93,5 +93,27 @@ namespace LoanWise.Domain.Entities
 
             Status = LoanStatus.Disbursed;
         }
+
+        public void GenerateRepaymentSchedule()
+        {
+            if (Status != LoanStatus.Disbursed)
+                throw new InvalidOperationException("Repayment schedule can only be generated for disbursed loans.");
+
+            var monthlyInstallment = Math.Round(Amount.Value / DurationInMonths, 2);
+
+            for (int i = 1; i <= DurationInMonths; i++)
+            {
+                var dueDate = DateTime.UtcNow.Date.AddMonths(i);
+                var repayment = new Repayment(
+                    id: Guid.NewGuid(),
+                    loanId: this.Id,
+                    dueDate: dueDate,
+                    amount: new Money(monthlyInstallment)
+                );
+
+                _repayments.Add(repayment);
+            }
+        }
+
     }
 }
