@@ -12,6 +12,7 @@ public static class AddInfrastructureServices
     {
 
         services.AddScoped<ILoanRepository, LoanRepository>();
+        services.AddScoped<IFundingRepository, FundingRepository>();
 
         //services.AddSingleton<IEmailService, SendGridEmailService>();
         //services.AddSingleton<IBlobStorageService, AzureBlobStorageService>();
