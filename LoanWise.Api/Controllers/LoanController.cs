@@ -1,4 +1,5 @@
 ﻿
+using LoanWise.Application.Features.Dashboard.Queries.GetBorrowerDashboard;
 using LoanWise.Application.Features.Loans.Commands.ApplyLoan;
 using LoanWise.Application.Features.Loans.Commands.DisburseLoan;
 using LoanWise.Application.Features.Loans.Queries.GetLoansByBorrower;
@@ -108,6 +109,21 @@ namespace LoanWise.Api.Controllers
         {
             var result = await _mediator.Send(new GetRepaymentsByLoanIdQuery(loanId));
             return result.Success ? Ok(result) : BadRequest(result);
+        }
+
+
+        /// <summary>
+        /// Returns borrower dashboard metrics such as loan counts and upcoming repayment.
+        /// </summary>
+        /// <param name="borrowerId">Borrower user ID</param>
+        /// <returns>BorrowerDashboardDto</returns>
+        /// <response code="200">Success</response>
+        /// <response code="400">Invalid or not found</response>
+        [HttpGet("borrowers/{borrowerId}/dashboard")]
+        public async Task<IActionResult> GetBorrowerDashboard(Guid borrowerId)
+        {
+            var response = await _mediator.Send(new GetBorrowerDashboardQuery(borrowerId));
+            return response.Success ? Ok(response) : BadRequest(response);
         }
 
     }
