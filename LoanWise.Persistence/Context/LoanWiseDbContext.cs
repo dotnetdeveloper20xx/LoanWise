@@ -82,6 +82,21 @@ namespace LoanWise.Persistence.Context
                     .HasForeignKey<CreditProfile>(c => c.UserId);
             });
 
+            // Prevent cascading deletes globally unless explicitly configured
+            foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+            {
+                foreach (var foreignKey in entityType.GetForeignKeys())
+                {
+                    // Skip owned types and already configured delete behavior
+                    if (!foreignKey.IsOwnership && foreignKey.DeleteBehavior == DeleteBehavior.Cascade)
+                    {
+                        foreignKey.DeleteBehavior = DeleteBehavior.Restrict;
+                    }
+                }
+            }
+
+
+
             base.OnModelCreating(modelBuilder);
         }
     }
