@@ -1,5 +1,6 @@
 ﻿
 using LoanWise.Application.Features.Loans.Commands.ApplyLoan;
+using LoanWise.Application.Features.Loans.Commands.DisburseLoan;
 using LoanWise.Application.Features.Loans.Queries.GetLoansByBorrower;
 using LoanWise.Application.Features.Loans.Queries.GetOpenLoans;
 using MediatR;
@@ -77,6 +78,21 @@ namespace LoanWise.Api.Controllers
             return response.Success ? Ok(response) : BadRequest(response);
         }
 
+        /// <summary>
+        /// Disburses a fully funded loan. Admin only.
+        /// </summary>
+        /// <param name="loanId">The ID of the loan to disburse.</param>
+        /// <returns>
+        /// Returns the loan ID if disbursement is successful.
+        /// </returns>
+        /// <response code="200">Loan disbursed successfully.</response>
+        /// <response code="400">Loan not found or not eligible for disbursement.</response>
+        [HttpPost("{loanId}/disburse")]
+        public async Task<IActionResult> DisburseLoan(Guid loanId)
+        {
+            var response = await _mediator.Send(new DisburseLoanCommand(loanId));
+            return response.Success ? Ok(response) : BadRequest(response);
+        }
 
     }
 }

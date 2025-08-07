@@ -82,5 +82,16 @@ namespace LoanWise.Domain.Entities
                 Status = LoanStatus.Funded;
             }
         }
+
+        /// <summary>
+        /// Marks the loan as disbursed after it has been fully funded.
+        /// </summary>
+        public void Disburse()
+        {
+            if (Status != LoanStatus.Funded)
+                throw new InvalidOperationException("Only fully funded loans can be disbursed.");
+
+            Status = LoanStatus.Disbursed;
+        }
     }
 }
