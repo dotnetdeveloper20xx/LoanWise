@@ -51,7 +51,8 @@ namespace LoanWise.Application.Features.Fundings.Commands.FundLoan
                 id: Guid.NewGuid(),
                 loanId: request.LoanId,
                 lenderId: request.LenderId,
-                amount: new Money(request.Amount)
+                amount: new Money(request.Amount),
+                fundedOn: DateTime.UtcNow
             );
 
             await _fundingRepository.AddAsync(funding, cancellationToken);
