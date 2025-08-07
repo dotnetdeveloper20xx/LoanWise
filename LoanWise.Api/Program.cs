@@ -5,7 +5,7 @@ using Microsoft.OpenApi.Models;
 using System.Text;
 using LoanWise.Infrastructure.DependencyInjection;
 using LoanWise.Application.DependencyInjection;
-using LoanWise.Persistence.DependencyInjection;
+
 
 
 var builder = WebApplication.CreateBuilder(args);

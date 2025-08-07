@@ -3,6 +3,7 @@
   <ItemGroup>
     <ProjectReference Include="..\LoanWise.Application\LoanWise.Application.csproj" />
     <ProjectReference Include="..\LoanWise.Domain\LoanWise.Domain.csproj" />
+    <ProjectReference Include="..\LoanWise.Infrastructure\LoanWise.Infrastructure.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -12,10 +13,6 @@
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="9.0.8" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="DependencyInjection\" />
   </ItemGroup>
 
   <PropertyGroup>
