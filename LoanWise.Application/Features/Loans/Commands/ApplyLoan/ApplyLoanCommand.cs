@@ -1,12 +1,14 @@
-﻿using LoanWise.Domain.Enums;
+﻿using LoanWise.Application.Common.Models;
+using LoanWise.Domain.Enums;
 using MediatR;
+using StoreBoost.Application.Common.Models;
 
 namespace LoanWise.Application.Features.Loans.Commands.ApplyLoan
 {
     /// <summary>
     /// Command issued by a borrower to apply for a new loan.
     /// </summary>
-    public class ApplyLoanCommand : IRequest<Guid>
+    public class ApplyLoanCommand : IRequest<ApiResponse<Guid>>
     {
         public Guid BorrowerId { get; set; }
         public decimal Amount { get; set; }
