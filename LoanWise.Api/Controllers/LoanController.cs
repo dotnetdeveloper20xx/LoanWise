@@ -1,7 +1,9 @@
-﻿using LoanWise.Application.Features.Dashboard.Queries.GetAdminLoanStats;
+﻿using LoanWise.Application.DTOs.Loans;
+using LoanWise.Application.Features.Dashboard.Queries.GetAdminLoanStats;
 using LoanWise.Application.Features.Dashboard.Queries.GetBorrowerDashboard;
 using LoanWise.Application.Features.Loans.Commands.ApplyLoan;
 using LoanWise.Application.Features.Loans.Commands.DisburseLoan;
+using LoanWise.Application.Features.Loans.Queries.GetBorrowerLoanHistory;
 using LoanWise.Application.Features.Loans.Queries.GetLoansByBorrower;
 using LoanWise.Application.Features.Loans.Queries.GetOpenLoans;
 using LoanWise.Application.Features.Repayments.Queries.GetRepaymentsByLoanId;
@@ -80,5 +82,16 @@ namespace LoanWise.Api.Controllers
             var result = await _mediator.Send(new GetAdminLoanStatsQuery());
             return result.Success ? Ok(result) : BadRequest(result);
         }
+
+        [HttpGet("borrowers/history")]
+        [Authorize(Roles = "Borrower")]
+        [ProducesResponseType(typeof(ApiResponse<List<BorrowerLoanHistoryDto>>), StatusCodes.Status200OK)]
+        public async Task<IActionResult> GetBorrowerLoanHistory([FromQuery] GetBorrowerLoanHistoryQuery query)
+        {
+            var result = await _mediator.Send(query);
+            return Ok(result);
+        }
+
+
     }
 }

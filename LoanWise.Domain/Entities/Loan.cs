@@ -29,6 +29,9 @@ namespace LoanWise.Domain.Entities
         public IReadOnlyCollection<Funding> Fundings => _fundings.AsReadOnly();
         public IReadOnlyCollection<Repayment> Repayments => _repayments.AsReadOnly();
 
+        public DateTime CreatedAtUtc { get; set; }
+        public DateTime? DisbursedAtUtc { get; set; }
+
         private Loan() { }
 
         public Loan(Guid id, Guid borrowerId, Money amount, int durationInMonths, LoanPurpose purpose)
