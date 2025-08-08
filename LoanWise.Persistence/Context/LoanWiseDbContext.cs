@@ -36,6 +36,7 @@ namespace LoanWise.Persistence.Context
         public DbSet<CreditProfile> CreditProfiles => Set<CreditProfile>();
         public DbSet<EscrowTransaction> EscrowTransactions => Set<EscrowTransaction>();
         public DbSet<User> Users { get; set; } = default!;
+        public DbSet<RefreshToken> RefreshTokens { get; set; }
 
         public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {
@@ -65,6 +66,8 @@ namespace LoanWise.Persistence.Context
             return result;
         }
 
+
+        //todo: move these into configuration classes.
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             // Loan.Amount
@@ -122,6 +125,18 @@ namespace LoanWise.Persistence.Context
                     .HasOne(c => c.User)
                     .WithOne()
                     .HasForeignKey<CreditProfile>(c => c.UserId);
+            });
+
+            //RefreshTokens
+            modelBuilder.Entity<RefreshToken>(builder =>
+            {
+                builder.HasKey(rt => rt.Id);
+                builder.Property(rt => rt.TokenHash).IsRequired().HasMaxLength(256);
+                builder.HasIndex(rt => new { rt.UserId, rt.TokenHash }).IsUnique();
+
+                builder.HasOne<User>()
+                       .WithMany() // or WithMany(u => u.RefreshTokens) if you add nav property
+                       .HasForeignKey(rt => rt.UserId);
             });
 
             // Prevent cascading deletes globally unless explicitly configured

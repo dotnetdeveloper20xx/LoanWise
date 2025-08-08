@@ -48,6 +48,8 @@ namespace LoanWise.Application.Common.Interfaces
         DbSet<EscrowTransaction> EscrowTransactions { get; }
 
         DbSet<User> Users { get; }
+        DbSet<RefreshToken> RefreshTokens { get; }     
+
 
         /// <summary>
         /// Persists changes to the database.
