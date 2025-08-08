@@ -48,9 +48,9 @@ namespace LoanWise.Application.Common.Interfaces
         DbSet<EscrowTransaction> EscrowTransactions { get; }
 
         DbSet<User> Users { get; }
-        DbSet<RefreshToken> RefreshTokens { get; }     
-
-
+        DbSet<RefreshToken> RefreshTokens { get; }
+        DbSet<Notification> Notifications { get; }
+       
         /// <summary>
         /// Persists changes to the database.
         /// </summary>
