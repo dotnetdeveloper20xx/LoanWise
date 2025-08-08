@@ -1,39 +1,48 @@
-﻿using AutoMapper;
-using LoanWise.Application.Common.Interfaces;
+﻿using LoanWise.Application.Common.Interfaces;
 using LoanWise.Application.Features.Fundings.DTOs;
 using MediatR;
+using Microsoft.EntityFrameworkCore;
 using StoreBoost.Application.Common.Models;
+using System.Linq;
 
 namespace LoanWise.Application.Features.Fundings.Queries.GetFundingsByLender
 {
-    public class GetFundingsByLenderQueryHandler : IRequestHandler<GetFundingsByLenderQuery, ApiResponse<List<LenderFundingDto>>>
+    public sealed class GetFundingsByLenderQueryHandler
+        : IRequestHandler<GetFundingsByLenderQuery, ApiResponse<List<LenderFundingDto>>>
     {
-        private readonly ILoanRepository _loanRepository;
-        private readonly IMapper _mapper;
+        private readonly IApplicationDbContext _db;
+        private readonly IUserContext _userContext;
 
-        public GetFundingsByLenderQueryHandler(ILoanRepository loanRepository, IMapper mapper)
+        public GetFundingsByLenderQueryHandler(IApplicationDbContext db, IUserContext userContext)
         {
-            _loanRepository = loanRepository;
-            _mapper = mapper;
+            _db = db;
+            _userContext = userContext;
         }
 
-        public async Task<ApiResponse<List<LenderFundingDto>>> Handle(GetFundingsByLenderQuery request, CancellationToken cancellationToken)
+        public async Task<ApiResponse<List<LenderFundingDto>>> Handle(GetFundingsByLenderQuery request, CancellationToken ct)
         {
-            var loans = await _loanRepository.GetAllIncludingFundingsAsync(cancellationToken);
+            if (!_userContext.UserId.HasValue)
+                return ApiResponse<List<LenderFundingDto>>.FailureResult("Unauthorized: missing user ID");
 
-            var filteredLoans = loans
-                .Where(loan => loan.Fundings.Any(f => f.LenderId == request.LenderId))
-                .ToList();
+            var lenderId = _userContext.UserId.Value;
 
-            var result = filteredLoans
-                        .Select(loan => _mapper.Map<LenderFundingDto>(loan, opt =>
-                        {
-                            opt.Items["LenderId"] = request.LenderId;
-                        }))
-                        .ToList();
+            var fundings = await _db.Fundings
+                .Where(f => f.LenderId == lenderId)
+                .Include(f => f.Loan)
+                    .ThenInclude(l => l.Fundings) // Needed to calculate TotalFunded
+                .OrderByDescending(f => f.FundedOn)
+                .Select(f => new LenderFundingDto(
+                    f.LoanId,                                        // LoanId (Guid)
+                    f.Loan.Amount.Value,                             // LoanAmount (decimal)
+                    f.Loan.Fundings.Sum(x => x.Amount.Value),        // TotalFunded (decimal)
+                    f.Loan.Purpose.ToString(),                       // Purpose (string)
+                    f.Loan.Status.ToString(),                        // Status (string)
+                    f.Amount.Value                                   // AmountFundedByYou (decimal)
+                ))
+                .ToListAsync(ct);
 
 
-            return ApiResponse<List<LenderFundingDto>>.SuccessResult(result);
+            return ApiResponse<List<LenderFundingDto>>.SuccessResult(fundings);
         }
     }
 }

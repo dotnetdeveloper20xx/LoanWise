@@ -29,22 +29,19 @@ namespace LoanWise.Application.Mapping
                 .ForMember(dest => dest.Status, opt => opt.MapFrom(src => src.Status));
 
             CreateMap<Loan, LenderFundingDto>()
-                 .ForMember(dest => dest.LoanId, opt => opt.MapFrom(src => src.Id))
-                 .ForMember(dest => dest.LoanAmount, opt => opt.MapFrom(src => src.Amount.Value))
-                 .ForMember(dest => dest.TotalFunded, opt => opt.MapFrom(src => src.Fundings.Sum(f => f.Amount.Value)))
-                 .ForMember(dest => dest.Purpose, opt => opt.MapFrom(src => src.Purpose))
-                 .ForMember(dest => dest.Status, opt => opt.MapFrom(src => src.Status))
-                 .ForMember(dest => dest.AmountFundedByYou, opt => opt.Ignore())
-                 .AfterMap((src, dest, ctx) =>
+                 .ForCtorParam("LoanId", opt => opt.MapFrom(src => src.Id))
+                 .ForCtorParam("LoanAmount", opt => opt.MapFrom(src => src.Amount.Value))
+                 .ForCtorParam("TotalFunded", opt => opt.MapFrom(src => src.Fundings.Sum(f => f.Amount.Value)))
+                 .ForCtorParam("Purpose", opt => opt.MapFrom(src => src.Purpose.ToString()))
+                 .ForCtorParam("Status", opt => opt.MapFrom(src => src.Status.ToString()))
+                 .ForCtorParam("AmountFundedByYou", opt => opt.MapFrom((src, ctx) =>
                  {
                      var lenderId = ctx.Items["LenderId"] as Guid?;
-                     if (lenderId.HasValue)
-                     {
-                         dest.AmountFundedByYou = src.Fundings
-                             .Where(f => f.LenderId == lenderId.Value)
-                             .Sum(f => f.Amount.Value);
-                     }
-                 });
+                     return lenderId.HasValue
+                         ? src.Fundings.Where(f => f.LenderId == lenderId.Value).Sum(f => f.Amount.Value)
+                         : 0m;
+                 }));
+
 
             CreateMap<Repayment, RepaymentDto>()
            .ForMember(dest => dest.Amount, opt => opt.MapFrom(src => src.Amount.Value));

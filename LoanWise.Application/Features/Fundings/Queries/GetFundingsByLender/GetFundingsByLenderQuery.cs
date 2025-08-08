@@ -5,13 +5,6 @@ using StoreBoost.Application.Common.Models;
 
 namespace LoanWise.Application.Features.Fundings.Queries.GetFundingsByLender
 {
-    public class GetFundingsByLenderQuery : IRequest<ApiResponse<List<LenderFundingDto>>>
-    {
-        public Guid LenderId { get; }
-
-        public GetFundingsByLenderQuery(Guid lenderId)
-        {
-            LenderId = lenderId;
-        }
-    }
+    public sealed record GetFundingsByLenderQuery()
+        : IRequest<ApiResponse<List<LenderFundingDto>>>;
 }

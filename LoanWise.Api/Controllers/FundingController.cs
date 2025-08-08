@@ -42,10 +42,11 @@ namespace LoanWise.Api.Controllers
         /// <response code="200">Returns lender's funded loans</response>
         /// <response code="400">If lenderId is invalid</response>
         [HttpGet("my")]
-        public async Task<IActionResult> GetMyFundings([FromQuery] Guid lenderId)
+        [ProducesResponseType(typeof(ApiResponse<List<LenderFundingDto>>), StatusCodes.Status200OK)]
+        public async Task<IActionResult> GetMyFundings()
         {
-            var result = await _mediator.Send(new GetFundingsByLenderQuery(lenderId));
-            return result.Success ? Ok(result) : BadRequest(result);
+            var result = await _mediator.Send(new GetFundingsByLenderQuery());
+            return Ok(result);
         }
     }
 }
