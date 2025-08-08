@@ -58,6 +58,8 @@ namespace LoanWise.Domain.Entities
         public IReadOnlyCollection<VerificationDocument> Documents => _documents.AsReadOnly();
         public IReadOnlyCollection<SystemEvent> Events => _events.AsReadOnly();
 
+        public bool IsActive { get; set; }
+
         public User() { }
 
         public User(Guid id, string fullName, string email, string passwordHash, UserRole role)

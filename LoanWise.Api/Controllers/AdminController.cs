@@ -1,5 +1,7 @@
-﻿using LoanWise.Application.Features.Admin.Commands.ApproveLoan;
+﻿using LoanWise.Application.DTOs.Users;
+using LoanWise.Application.Features.Admin.Commands.ApproveLoan;
 using LoanWise.Application.Features.Admin.Commands.RejectLoan;
+using LoanWise.Application.Features.Admin.Queries.GetUsers;
 using LoanWise.Application.Features.Repayments.Commands.CheckOverdueRepayments;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -53,6 +55,17 @@ namespace LoanWise.Api.Controllers
         {
             var response = await _mediator.Send(new CheckOverdueRepaymentsCommand());
             return response.Success ? Ok(response) : BadRequest(response);
+        }
+
+        /// <summary>
+        /// Returns a paginated list of all users (Admin only)
+        /// </summary>
+        [HttpGet("users")]
+        [ProducesResponseType(typeof(ApiResponse<PaginatedResult<UserListDto>>), StatusCodes.Status200OK)]
+        public async Task<IActionResult> GetUsers([FromQuery] GetUsersQuery query)
+        {
+            var result = await _mediator.Send(query);
+            return Ok(result); // Always wrapped in ApiResponse<T>
         }
     }
 }
