@@ -250,36 +250,100 @@
       }
     },
     {
-  "name": "Borrower - Apply Loan",
-  "request": {
-    "method": "POST",
-    "header": [
-      {
-        "key": "Authorization",
-        "value": "Bearer {{token}}"
-      },
-      {
-        "key": "Content-Type",
-        "value": "application/json"
+      "name": "Borrower - Apply Loan",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/loans/apply",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "loans",
+            "apply"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"amount\": 10000,\n  \"durationInMonths\": 12,\n  \"purpose\": \"HomeImprovement\",\n  \"description\": \"Paint & flooring\",\n  \"monthlyIncome\": 3500\n}"
+        }
       }
-    ],
-    "url": {
-      "raw": "{{base_url}}/api/loans/apply",
-      "host": [
-        "{{base_url}}"
-      ],
-      "path": [
-        "api",
-        "loans",
-        "apply"
-      ]
     },
-    "body": {
-      "mode": "raw",
-      "raw": "{\n  \"amount\": 10000,\n  \"durationInMonths\": 12,\n  \"purpose\": \"HomeImprovement\",\n  \"description\": \"Paint & flooring\",\n  \"monthlyIncome\": 3500\n}"
-    }
-  }
-},
+
+    {
+      "name": "Admin - Approve Loan",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/admin/loans/{{loanId}}/approve",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "admin",
+            "loans",
+            "{{loanId}}",
+            "approve"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Admin - Reject Loan",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/admin/loans/{{loanId}}/reject",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "admin",
+            "loans",
+            "{{loanId}}",
+            "reject"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"reason\": \"Insufficient credit history\"\n}"
+        }
+      }
+    },
+
     {
       "name": "Loan - Disburse",
       "request": {

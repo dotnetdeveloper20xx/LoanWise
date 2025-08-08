@@ -60,6 +60,9 @@ namespace LoanWise.Persistence.Migrations
                     DurationInMonths = table.Column<int>(type: "int", nullable: false),
                     Purpose = table.Column<int>(type: "int", nullable: false),
                     Status = table.Column<int>(type: "int", nullable: false),
+                    RejectedReason = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    RejectedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    ApprovedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: false),
                     RiskLevel = table.Column<int>(type: "int", nullable: false)
                 },
                 constraints: table =>

@@ -104,6 +104,9 @@ namespace LoanWise.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<DateTime>("ApprovedAtUtc")
+                        .HasColumnType("datetime2");
+
                     b.Property<Guid>("BorrowerId")
                         .HasColumnType("uniqueidentifier");
 
@@ -112,6 +115,12 @@ namespace LoanWise.Persistence.Migrations
 
                     b.Property<int>("Purpose")
                         .HasColumnType("int");
+
+                    b.Property<DateTime>("RejectedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("RejectedReason")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<int>("RiskLevel")
                         .HasColumnType("int");
