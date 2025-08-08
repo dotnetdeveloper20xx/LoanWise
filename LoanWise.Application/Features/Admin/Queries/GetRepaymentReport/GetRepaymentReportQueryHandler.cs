@@ -31,7 +31,7 @@ namespace LoanWise.Application.Features.Admin.Queries.GetRepaymentReport
                     r.DueDate,
                     r.IsPaid,
                     r.PaidOn,
-                   ((Money)r.RepaymentAmount).Value,
+                   r.RepaymentAmount,
                     r.Loan.Status.ToString()
                 ))
                 .ToListAsync(ct);

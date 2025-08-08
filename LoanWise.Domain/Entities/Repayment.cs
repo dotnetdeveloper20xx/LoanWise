@@ -42,7 +42,7 @@ namespace LoanWise.Domain.Entities
         /// Actual payment date if paid.
         /// </summary>
         public DateTime? PaidOn { get; private set; }
-        public object RepaymentAmount { get; set; }
+        public decimal RepaymentAmount { get; set; }
 
         /// <summary>
         /// Required by EF Core.
