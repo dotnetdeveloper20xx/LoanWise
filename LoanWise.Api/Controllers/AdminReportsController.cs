@@ -1,5 +1,6 @@
 ﻿using LoanWise.Application.DTOs.Reports;
 using LoanWise.Application.Features.Admin.Queries.GetLoanReport;
+using LoanWise.Application.Features.Admin.Queries.GetRepaymentReport;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -22,5 +23,14 @@ namespace LoanWise.Api.Controllers
             var result = await _mediator.Send(new GetLoanReportQuery());
             return Ok(result);
         }
+
+        [HttpGet("repayments")]
+        [ProducesResponseType(typeof(ApiResponse<List<RepaymentReportDto>>), StatusCodes.Status200OK)]
+        public async Task<IActionResult> GetRepaymentsReport()
+        {
+            var result = await _mediator.Send(new GetRepaymentReportQuery());
+            return Ok(result);
+        }
+
     }
 }
