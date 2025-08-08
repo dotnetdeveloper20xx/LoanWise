@@ -1,8 +1,11 @@
-﻿using LoanWise.Application.Features.Auth.Commands.LoginUser;
+﻿using LoanWise.Application.DTOs.Auth;
+using LoanWise.Application.Features.Auth.Commands.LoginUser;
+using LoanWise.Application.Features.Auth.Commands.RefreshToken;
 using LoanWise.Application.Features.Auth.Commands.RegisterUser;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using StoreBoost.Application.Common.Models;
 
 namespace LoanWise.Api.Controllers
 {
@@ -46,5 +49,16 @@ namespace LoanWise.Api.Controllers
             var result = await _mediator.Send(command);
             return Ok(result);
         }
+
+        [HttpPost("refresh")]
+        [AllowAnonymous]
+        [ProducesResponseType(typeof(ApiResponse<RefreshTokenResponse>), StatusCodes.Status200OK)]
+        public async Task<IActionResult> Refresh([FromBody] RefreshTokenRequest request)
+        {
+            var ip = HttpContext.Connection.RemoteIpAddress?.ToString();
+            var result = await _mediator.Send(new RefreshTokenCommand(request, ip));
+            return Ok(result);
+        }
+
     }
 }
