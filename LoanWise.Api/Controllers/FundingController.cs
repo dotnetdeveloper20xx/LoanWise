@@ -28,7 +28,7 @@ namespace LoanWise.Api.Controllers
         [HttpPost("{loanId}")]
         public async Task<IActionResult> FundLoan(Guid loanId, [FromBody] FundLoanDto request)
         {
-            var command = new FundLoanCommand(loanId, request.LenderId, request.Amount);
+            var command = new FundLoanCommand(loanId,request.Amount);
             ApiResponse<Guid> result = await _mediator.Send(command);
 
             return result.Success ? Ok(result) : BadRequest(result);

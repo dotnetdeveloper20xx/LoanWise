@@ -15,19 +15,28 @@ namespace LoanWise.Application.Features.Fundings.Commands.FundLoan
         private readonly ILoanRepository _loanRepository;
         private readonly IFundingRepository _fundingRepository;
         private readonly ILogger<FundLoanCommandHandler> _logger;
+        private readonly IUserContext _userContext;
 
         public FundLoanCommandHandler(
             ILoanRepository loanRepository,
             IFundingRepository fundingRepository,
-            ILogger<FundLoanCommandHandler> logger)
+            ILogger<FundLoanCommandHandler> logger,
+            IUserContext userContext)
         {
             _loanRepository = loanRepository;
             _fundingRepository = fundingRepository;
             _logger = logger;
+            _userContext = userContext;
         }
 
         public async Task<ApiResponse<Guid>> Handle(FundLoanCommand request, CancellationToken cancellationToken)
         {
+            if (!_userContext.UserId.HasValue)
+                return ApiResponse<Guid>.FailureResult("Unauthorized: missing user ID");
+
+            var lenderId = _userContext.UserId.Value;
+
+
             var loan = await _loanRepository.GetByIdAsync(request.LoanId, cancellationToken);
 
             if (loan == null)
@@ -49,7 +58,7 @@ namespace LoanWise.Application.Features.Fundings.Commands.FundLoan
             var funding = new Funding(
                 id: Guid.NewGuid(),
                 loanId: request.LoanId,
-                lenderId: request.LenderId,
+                lenderId: lenderId,
                 amount: new Money(request.Amount),
                 fundedOn: DateTime.UtcNow
             );
@@ -62,7 +71,7 @@ namespace LoanWise.Application.Features.Fundings.Commands.FundLoan
 
             _logger.LogInformation(
                 "Loan {LoanId} funded by lender {LenderId} with {Amount}. Loan status: {Status}",
-                request.LoanId, request.LenderId, request.Amount, loan.Status
+                request.LoanId, lenderId, request.Amount, loan.Status
             );
 
             return ApiResponse<Guid>.SuccessResult(funding.Id, "Funding recorded successfully.");

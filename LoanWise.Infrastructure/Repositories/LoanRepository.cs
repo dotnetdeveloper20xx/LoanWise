@@ -20,6 +20,7 @@ namespace LoanWise.Infrastructure.Repositories
         public async Task AddAsync(Loan loan, CancellationToken cancellationToken)
         {
             await _context.Loans.AddAsync(loan, cancellationToken);
+            await _context.SaveChangesAsync(cancellationToken);
         }
 
         public async Task<Loan?> GetByIdAsync(Guid loanId, CancellationToken cancellationToken)

@@ -9,14 +9,12 @@ namespace LoanWise.Application.Features.Fundings.Commands.FundLoan
     /// </summary>
     public class FundLoanCommand : IRequest<ApiResponse<Guid>>
     {
-        public Guid LoanId { get; set; }
-        public Guid LenderId { get; set; }
+        public Guid LoanId { get; set; }       
         public decimal Amount { get; set; }
 
-        public FundLoanCommand(Guid loanId, Guid lenderId, decimal amount)
+        public FundLoanCommand(Guid loanId, decimal amount)
         {
-            LoanId = loanId;
-            LenderId = lenderId;
+            LoanId = loanId;           
             Amount = amount;
         }
     }

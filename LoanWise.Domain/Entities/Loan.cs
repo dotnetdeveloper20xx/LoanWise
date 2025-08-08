@@ -21,6 +21,9 @@ namespace LoanWise.Domain.Entities
         public int DurationInMonths { get; private set; }
         public LoanPurpose Purpose { get; private set; }
         public LoanStatus Status { get; private set; }
+        public string? RejectedReason { get; private set; }
+        public DateTime RejectedAtUtc { get; private set; }
+        public DateTime ApprovedAtUtc { get; private set; }
         public RiskLevel RiskLevel { get; private set; }
 
         public IReadOnlyCollection<Funding> Fundings => _fundings.AsReadOnly();
@@ -133,5 +136,21 @@ namespace LoanWise.Domain.Entities
                 }
             }
         }
+
+
+        public void SetApproved()
+        {
+            Status = LoanStatus.Approved;
+            ApprovedAtUtc = DateTime.UtcNow; // if you track timestamps
+        }
+
+        public void SetRejected(string? reason)
+        {
+            Status = LoanStatus.Rejected;
+            RejectedReason = reason;        // if you track reason
+            RejectedAtUtc = DateTime.UtcNow; // if you track timestamps
+        }
+
+
     }
 }

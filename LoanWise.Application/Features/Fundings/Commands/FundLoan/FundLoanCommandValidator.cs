@@ -15,8 +15,10 @@ namespace LoanWise.Application.Features.Fundings.Commands.FundLoan
             RuleFor(x => x.LoanId)
                 .NotEmpty().WithMessage("Loan ID is required.");
 
-            RuleFor(x => x.LenderId)
-                .NotEmpty().WithMessage("Lender ID is required.");
+            //Fazi, get this from the user context. Security issue.
+
+            //RuleFor(x => x.LenderId)
+            //    .NotEmpty().WithMessage("Lender ID is required.");
         }
     }
 }
