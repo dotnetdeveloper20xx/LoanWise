@@ -12,7 +12,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace LoanWise.Persistence.Migrations
 {
     [DbContext(typeof(LoanWiseDbContext))]
-    [Migration("20250807214655_InitialCreate")]
+    [Migration("20250808075034_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />

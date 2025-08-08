@@ -2,6 +2,7 @@
 using LoanWise.Domain.Enums;
 using LoanWise.Domain.ValueObjects;
 using LoanWise.Persistence.Context;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -16,71 +17,122 @@ namespace LoanWise.Persistence.Setup
         {
             await context.Database.MigrateAsync();
 
-            if (!context.Users.Any())
+            // short-circuit if already seeded
+            if (await context.Users.AnyAsync())
+            {
+                logger.LogInformation("Users already exist. Skipping seeding.");
+                return;
+            }
+
+            await using var tx = await context.Database.BeginTransactionAsync();
+
+            try
             {
                 logger.LogInformation("Seeding users...");
 
-                const string demoPassword = "demo123"; // Simple password for demo/testing
+                const string demoPassword = "demo123"; // demo/testing only
+                var hasher = new PasswordHasher<User>();
 
-                var borrowers = Enumerable.Range(1, 10).Select(i => new User
-                {
-                    Id = Guid.NewGuid(),
-                    FullName = $"Borrower {i}",
-                    Email = $"borrower{i}@demo.com",
-                    Role = UserRole.Borrower,
-                    PasswordHash = demoPassword
-                }).ToList();
+                // 1) Create users (Borrowers, Lenders, Admin) with hashed passwords
+                var newUsers = new List<User>();
 
-                var lenders = Enumerable.Range(1, 5).Select(i => new User
+                // Borrowers
+                for (int i = 1; i <= 10; i++)
                 {
-                    Id = Guid.NewGuid(),
-                    FullName = $"Lender {i}",
-                    Email = $"lender{i}@demo.com",
-                    Role = UserRole.Lender,
-                    PasswordHash = demoPassword
-                }).ToList();
-
-                var admins = new List<User>
-                {
-                    new User
+                    var u = new User
                     {
                         Id = Guid.NewGuid(),
-                        FullName = "Admin",
-                        Email = "admin@loanwise.com",
-                        Role = UserRole.Admin,
-                        PasswordHash = demoPassword
-                    }
+                        FullName = $"Borrower {i}",
+                        Email = $"borrower{i}@demo.com",
+                        Role = UserRole.Borrower
+                    };
+                    u.PasswordHash = hasher.HashPassword(u, demoPassword);
+                    newUsers.Add(u);
+                }
+
+                // Lenders
+                for (int i = 1; i <= 5; i++)
+                {
+                    var u = new User
+                    {
+                        Id = Guid.NewGuid(),
+                        FullName = $"Lender {i}",
+                        Email = $"lender{i}@demo.com",
+                        Role = UserRole.Lender
+                    };
+                    u.PasswordHash = hasher.HashPassword(u, demoPassword);
+                    newUsers.Add(u);
+                }
+
+                // Admin
+                var admin = new User
+                {
+                    Id = Guid.NewGuid(),
+                    FullName = "Admin",
+                    Email = "admin@loanwise.com",
+                    Role = UserRole.Admin
                 };
+                admin.PasswordHash = hasher.HashPassword(admin, demoPassword);
+                newUsers.Add(admin);
 
-                context.Users.AddRange(borrowers);
-                context.Users.AddRange(lenders);
-                context.Users.AddRange(admins);
+                context.Users.AddRange(newUsers);
+                await context.SaveChangesAsync(); // ensure IDs are persisted
 
-                await context.SaveChangesAsync();
+                // 2) Re-query borrowers & lenders from DB to avoid FK issues
+                var borrowers = await context.Users
+                    .AsNoTracking()
+                    .Where(u => u.Role == UserRole.Borrower)
+                    .ToListAsync();
+
+                var lenderIds = await context.Users
+                    .AsNoTracking()
+                    .Where(u => u.Role == UserRole.Lender)
+                    .Select(u => u.Id)
+                    .ToListAsync();
+
+                if (lenderIds.Count == 0)
+                {
+                    logger.LogWarning("No lenders found after seeding; skipping funding/loans.");
+                    await tx.CommitAsync();
+                    return;
+                }
 
                 logger.LogInformation("Seeding loans and related entities...");
 
-                var random = new Random();
-                var purposes = Enum.GetValues(typeof(LoanPurpose)).Cast<LoanPurpose>().ToList();
-                var riskLevels = Enum.GetValues(typeof(RiskLevel)).Cast<RiskLevel>().ToList();
+                var rnd = new Random();
+                var purposes = Enum.GetValues(typeof(LoanPurpose)).Cast<LoanPurpose>().ToArray();
+                var riskLevels = Enum.GetValues(typeof(RiskLevel)).Cast<RiskLevel>().ToArray();
 
                 var loans = new List<Loan>();
 
                 foreach (var borrower in borrowers)
                 {
+                    // 3 loans per borrower
                     for (int i = 0; i < 3; i++)
                     {
-                        var amount = new Money(random.Next(1000, 20000));
-                        var duration = random.Next(6, 24);
-                        var purpose = purposes[random.Next(purposes.Count)];
+                        var amount = new Money(rnd.Next(1000, 20000));
+                        var duration = rnd.Next(6, 24);
+                        var purpose = purposes[rnd.Next(purposes.Length)];
 
                         var loan = new Loan(Guid.NewGuid(), borrower.Id, amount, duration, purpose);
-                        loan.Approve(riskLevels[random.Next(riskLevels.Count)]);
+                        loan.Approve(riskLevels[rnd.Next(riskLevels.Length)]);
 
-                        foreach (var lender in lenders.OrderBy(x => random.Next()).Take(3))
+                        // pick up to 3 distinct lenders from DB
+                        var pickedLenders = lenderIds
+                            .OrderBy(_ => rnd.Next())
+                            .Take(Math.Min(3, lenderIds.Count))
+                            .ToList();
+
+                        foreach (var lenderId in pickedLenders)
                         {
-                            var fundingAmount = random.Next(500, (int)(amount.Value / 2));
-                            var funding = new Funding(Guid.NewGuid(), loan.Id, lender.Id, new Money(fundingAmount), DateTime.UtcNow.AddDays(-i));
+                            var fundingAmount = rnd.Next(500, Math.Max(600, (int)(amount.Value / 2)));
+                            var funding = new Funding(
+                                Guid.NewGuid(),
+                                loan.Id,
+                                lenderId, // FK guaranteed to exist
+                                new Money(fundingAmount),
+                                DateTime.UtcNow.AddDays(-i)
+                            );
                             loan.AddFunding(funding);
                         }
 
@@ -96,11 +148,21 @@ namespace LoanWise.Persistence.Setup
                     }
                 }
 
+                // Add loans (cascades should insert Fundings/Repayments if configured)
                 context.Loans.AddRange(loans);
                 await context.SaveChangesAsync();
 
-                logger.LogInformation("Seeded {Borrowers} borrowers, {Lenders} lenders, {Loans} loans.",
-                    borrowers.Count, lenders.Count, loans.Count);
+                await tx.CommitAsync();
+
+                logger.LogInformation(
+                    "Seed completed: {Borrowers} borrowers, {Lenders} lenders, {Loans} loans.",
+                    borrowers.Count, lenderIds.Count, loans.Count);
+            }
+            catch (Exception ex)
+            {
+                await tx.RollbackAsync();
+                logger.LogError(ex, "Seeding failed and was rolled back.");
+                throw;
             }
         }
     }

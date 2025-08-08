@@ -14,23 +14,32 @@ namespace LoanWise.Application.Features.Loans.Commands.ApplyLoan
     public class ApplyLoanCommandHandler : IRequestHandler<ApplyLoanCommand, ApiResponse<Guid>>
     {
         private readonly ILoanRepository _loanRepository;
+        private readonly IUserContext _userContext;
         private readonly ILogger<ApplyLoanCommandHandler> _logger;
 
         public ApplyLoanCommandHandler(
             ILoanRepository loanRepository,
-            ILogger<ApplyLoanCommandHandler> logger)
+            ILogger<ApplyLoanCommandHandler> logger,
+            IUserContext userContext)
         {
             _loanRepository = loanRepository;
             _logger = logger;
+            _userContext = userContext;
         }
 
         public async Task<ApiResponse<Guid>> Handle(ApplyLoanCommand request, CancellationToken cancellationToken)
         {
+
+            if (!_userContext.UserId.HasValue)
+                return ApiResponse<Guid>.FailureResult("Unauthorized: missing user ID");
+
+            var borrowerId = _userContext.UserId.Value;
+
             try
             {
                 var loan = new Loan(
                     id: Guid.NewGuid(),
-                    borrowerId: request.BorrowerId,
+                    borrowerId: borrowerId,
                     amount: new Money(request.Amount),
                     durationInMonths: request.DurationInMonths,
                     purpose: request.Purpose

@@ -1,7 +1,9 @@
 ﻿using LoanWise.Application.Common.Interfaces;
 using LoanWise.Application.DTOs.Dashboard;
+using LoanWise.Application.Features.Loans.Commands.ApplyLoan;
 using LoanWise.Domain.Enums;
 using MediatR;
+using Microsoft.Extensions.Logging;
 using StoreBoost.Application.Common.Models;
 
 namespace LoanWise.Application.Features.Dashboard.Queries.GetBorrowerDashboard
@@ -10,13 +12,16 @@ namespace LoanWise.Application.Features.Dashboard.Queries.GetBorrowerDashboard
     {
         private readonly ILoanRepository _loanRepository;
         private readonly IUserContext _userContext;
+        private readonly ILogger<ApplyLoanCommandHandler> _logger;
 
         public GetBorrowerDashboardQueryHandler(
             ILoanRepository loanRepository,
+            ILogger<ApplyLoanCommandHandler> logger,
             IUserContext userContext)
         {
             _loanRepository = loanRepository;
-            _userContext = userContext;
+            _userContext = userContext;          
+            _logger = logger;
         }
 
         public async Task<ApiResponse<BorrowerDashboardDto>> Handle(GetBorrowerDashboardQuery request, CancellationToken cancellationToken)

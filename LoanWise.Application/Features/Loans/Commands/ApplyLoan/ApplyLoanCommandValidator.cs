@@ -18,8 +18,11 @@ namespace LoanWise.Application.Features.Loans.Commands.ApplyLoan
             RuleFor(x => x.Purpose)
                 .IsInEnum();
 
-            RuleFor(x => x.BorrowerId)
-                .NotEmpty().WithMessage("Borrower ID is required.");
+
+            //we will get this from the logged in user.
+
+            //RuleFor(x => x.BorrowerId)
+            //    .NotEmpty().WithMessage("Borrower ID is required.");
         }
     }
 }

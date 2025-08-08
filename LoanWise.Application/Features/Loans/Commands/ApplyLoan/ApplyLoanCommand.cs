@@ -9,8 +9,7 @@ namespace LoanWise.Application.Features.Loans.Commands.ApplyLoan
     /// Command issued by a borrower to apply for a new loan.
     /// </summary>
     public class ApplyLoanCommand : IRequest<ApiResponse<Guid>>
-    {
-        public Guid BorrowerId { get; set; }
+    {       
         public decimal Amount { get; set; }
         public int DurationInMonths { get; set; }
         public LoanPurpose Purpose { get; set; }

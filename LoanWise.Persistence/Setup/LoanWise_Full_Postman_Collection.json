@@ -8,7 +8,7 @@
   "variable": [
     {
       "key": "base_url",
-      "value": "http://localhost:5000"
+      "value": "https://localhost:7000"
     },
     {
       "key": "token",
@@ -249,6 +249,37 @@
         }
       }
     },
+    {
+  "name": "Borrower - Apply Loan",
+  "request": {
+    "method": "POST",
+    "header": [
+      {
+        "key": "Authorization",
+        "value": "Bearer {{token}}"
+      },
+      {
+        "key": "Content-Type",
+        "value": "application/json"
+      }
+    ],
+    "url": {
+      "raw": "{{base_url}}/api/loans/apply",
+      "host": [
+        "{{base_url}}"
+      ],
+      "path": [
+        "api",
+        "loans",
+        "apply"
+      ]
+    },
+    "body": {
+      "mode": "raw",
+      "raw": "{\n  \"amount\": 10000,\n  \"durationInMonths\": 12,\n  \"purpose\": \"HomeImprovement\",\n  \"description\": \"Paint & flooring\",\n  \"monthlyIncome\": 3500\n}"
+    }
+  }
+},
     {
       "name": "Loan - Disburse",
       "request": {
