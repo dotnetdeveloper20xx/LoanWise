@@ -1,4 +1,374 @@
 
+# LoanWise – Project Guide (Vision • Architecture • Testing • Prod Hardening)
+**Generated:** 2025-08-08 07:01 UTC
+
+---
+
+## 1) Product Vision (User’s Eye View)
+LoanWise is a smart peer‑to‑peer lending platform where **borrowers** request loans, **lenders** fund them (including partial/multi‑lender funding), and **admins** oversee approvals and system health. Users can apply for loans, upload supporting docs, get risk‑scored, receive funding, and repay via a clear monthly schedule. Dashboards show portfolio performance for lenders, repayment status for borrowers, and operational stats for admins.
+
+### Core User Value
+- **Borrowers:** simple application, transparent terms, clear repayment plan and reminders.
+- **Lenders:** browse open loans, diversify via partial funding, track returns and risk exposure.
+- **Admins:** approve loans, monitor status/overdues, audit key actions.
+
+---
+
+## 2) Architecture Overview (Clean Architecture + CQRS)
+**Layers**
+- **LoanWise.Api (Presentation):** Controllers, JWT auth, Swagger, exception middleware.
+- **LoanWise.Application:** **CQRS with MediatR**, validators (FluentValidation), DTOs, mapping (AutoMapper), pipeline behaviors (validation, logging, performance, optional caching).
+- **LoanWise.Domain:** Entities, value objects, domain rules.
+- **LoanWise.Infrastructure:** External services (Azure Blob, SendGrid, etc.).
+- **LoanWise.Persistence:** EF Core, repositories (SQL Server).
+
+**MediatR Behaviors**
+- Validation → early reject bad requests
+- Logging → request/response metadata
+- Performance → timing and slow-call alerts
+- (Optional) Caching, Retry/Resilience
+
+**Why this matters**
+- Testable, maintainable, and scalable; cross‑cutting concerns live in one place; domain stays clean.
+
+---
+
+## 3) Lead Developer View (What’s Implemented & Status)
+- **Loan lifecycle:** apply → fund (multi‑lender) → disburse → auto‑generate repayments → pay installments.
+- **Dashboards/Queries:** borrower dashboard, lender portfolio summary, admin loan stats & overdue checks.
+- **Technical foundations:** DTO contracts, AutoMapper profiles, global exception handling, ApiResponse wrapper, JWT‑ready endpoints, Swagger documentation, Azure integrations (Blob/SQL/Key Vault/SendGrid).
+
+**Immediate next steps**
+- Enforce role‑based `[Authorize]` by endpoint, finalize JWT flow.
+- Notification/events for funded/disbursed/overdue.
+- Lender return calculation linking repayments to fundings.
+- Unit/integration test coverage for critical paths.
+
+---
+
+## 4) How to Test with Postman
+### 4.1 Environment
+Create variables:
+- `base_url` → e.g., `http://localhost:5000`
+- `token` → (empty; set after login)
+- `loanId` → (set after apply/fund/disburse as needed)
+- `repaymentId` → (set when testing repayment pay)
+
+### 4.2 Typical Flow
+1) **Register** → 2) **Login** → copy JWT to `token` env var → 3) call protected endpoints per role.
+For admin/lender/borrower flows, register different users with the corresponding role.
+
+---
+
+## 5) Endpoints – Requests & Expected Responses
+Notes:
+- All responses use a structured wrapper: `ApiResponse<T>`
+    ```json
+    {
+      "success": true,
+      "message": "Optional info",
+      "errors": null,
+      "data": { /* payload */ }
+    }
+    ```
+- Error responses follow the same shape with `success=false` and `errors` populated.
+
+### Auth
+**POST** `/api/Auth/register`  
+Request:
+```json
+{
+  "fullName": "Demo User",
+  "email": "demo@example.com",
+  "password": "demo123",
+  "role": "Borrower"   // Borrower | Lender | Admin
+}
+```
+Successful Response (`ApiResponse<object>` or user profile summary):
+```json
+{
+  "success": true,
+  "message": "Registered",
+  "errors": null,
+  "data": {
+    "id": "GUID",
+    "fullName": "Demo User",
+    "email": "demo@example.com",
+    "role": "Borrower"
+  }
+}
+```
+
+**POST** `/api/Auth/login`  
+Request:
+```json
+{
+  "email": "demo@example.com",
+  "password": "demo123"
+}
+```
+Successful Response (`ApiResponse<object>`):
+```json
+{
+  "success": true,
+  "message": "Logged in",
+  "errors": null,
+  "data": {
+    "token": "JWT-TOKEN",
+    "expiresIn": 3600
+  }
+}
+```
+
+### Users
+**GET** `/api/users/me`  (Auth: any role)  
+Headers: `Authorization: Bearer {token}`  
+Response (`ApiResponse<UserView>`):
+```json
+{
+  "success": true,
+  "message": null,
+  "errors": null,
+  "data": {
+    "id": "GUID",
+    "fullName": "Demo User",
+    "email": "demo@example.com",
+    "role": "Borrower"
+  }
+}
+```
+
+### Loans – Borrower
+**POST** `/api/loans/apply`  (Auth: Borrower)  
+Request (`ApplyLoanRequestDto`):
+```json
+{
+  "amount": 10000,
+  "durationInMonths": 12,
+  "purpose": "HomeImprovement",
+  "description": "Paint & flooring",
+  "monthlyIncome": 3500
+}
+```
+Response (`ApiResponse<object>` minimal or `LoanViewDto`):
+```json
+{
+  "success": true,
+  "message": "Loan created",
+  "errors": null,
+  "data": {
+    "id": "GUID"
+  }
+}
+```
+
+**GET** `/api/loans/my`  (Auth: Borrower)  
+Response (`ApiResponse<List<BorrowerLoanDto|LoanViewDto>>`):
+```json
+{
+  "success": true,
+  "message": null,
+  "errors": null,
+  "data": [ {
+      "id": "GUID",
+      "amount": 10000,
+      "durationInMonths": 12,
+      "status": "Approved",
+      "amountFunded": 2500,
+      "riskLevel": "Medium",
+      "createdAtUtc": "2025-08-01T10:20:00Z"
+  } ]
+}
+```
+
+**GET** `/api/loans/borrowers/dashboard`  (Auth: Borrower)  
+Response (`ApiResponse<object>`):
+```json
+{
+  "success": true,
+  "data": {
+    "totalLoans": 2,
+    "totalDisbursed": 10000,
+    "upcomingRepayment": {
+      "dueDate": "2025-09-01T00:00:00Z",
+      "amount": 900.0
+    },
+    "outstandingBalance": 8100.0
+  }
+}
+```
+
+### Loans – Lender
+**GET** `/api/loans/open`  (Auth: Lender)  
+Response (`ApiResponse<List<LoanSummaryDto>>`).
+
+**POST** `/api/fundings/{loanId}`  (Auth: Lender)  
+Request:
+```json
+{ "amount": 1000 }
+```
+Response (`ApiResponse<object>` minimal or updated loan view):
+```json
+{
+  "success": true,
+  "message": "Funding recorded",
+  "data": {
+    "loanId": "GUID",
+    "amountFunded": 3500
+  }
+}
+```
+
+**GET** `/api/lenders/portfolio`  (Auth: Lender)  
+Response (`ApiResponse<object>`):
+```json
+{
+  "success": true,
+  "data": {
+    "totalFunded": 3500,
+    "fundedLoans": 2,
+    "openLoans": 5
+  }
+}
+```
+
+### Loans – Admin
+**POST** `/api/loans/{loanId}/disburse`  (Auth: Admin)  
+Response (`ApiResponse<object>`):
+```json
+{
+  "success": true,
+  "message": "Loan disbursed",
+  "data": {
+    "loanId": "GUID",
+    "status": "Disbursed"
+  }
+}
+```
+
+**GET** `/api/loans/{loanId}/repayments`  (Auth: Admin|Borrower)  
+Response (`ApiResponse<List<RepaymentDto>>`).
+
+**POST** `/api/repayments/{repaymentId}/pay`  (Auth: Borrower)  
+Response (`ApiResponse<object>`):
+```json
+{
+  "success": true,
+  "message": "Repayment marked as paid",
+  "data": {
+    "repaymentId": "GUID",
+    "paidOn": "2025-08-08T09:00:00Z"
+  }
+}
+```
+
+**POST** `/api/admin/repayments/check-overdue`  (Auth: Admin)  
+Response (`ApiResponse<object>`):
+```json
+{
+  "success": true,
+  "message": "Overdues checked",
+  "data": {
+    "overdueCount": 3,
+    "updated": 3
+  }
+}
+```
+
+**Admin Stats**
+**GET** `/api/loans/loans/stats`  (Auth: Admin)  
+Response (`ApiResponse<object>`):
+```json
+{
+  "success": true,
+  "data": {
+    "totalLoans": 20,
+    "byStatus": {
+      "Approved": 8,
+      "Funded": 6,
+      "Disbursed": 4,
+      "Overdue": 2
+    }
+  }
+}
+```
+
+---
+
+## 6) Sample DTOs (for reference)
+- `ApplyLoanRequestDto` — validated input for borrower loan application.
+- `LoanViewDto` — rich projection of a loan and its related data.
+- `FundingDto` — a single funding record.
+- `RepaymentDto` — schedule entries, with `IsOverdue` convenience calc.
+- `UserRegistrationDto` — register payload for Auth.
+
+---
+
+## 7) Production Readiness – Improvements & Hardening
+**Security & Auth**
+- Enforce `[Authorize(Roles="...")]` on every controller action. Add role‑based tests.
+- Refresh tokens, token rotation, short‑lived access tokens.
+- 2FA for sensitive actions; strict password policy.
+- Secrets in **Azure Key Vault**; never in appsettings.
+
+**Reliability & Performance**
+- Add **retry/circuit‑breaker** (Polly) for DB/IO; idempotency keys for POSTs.
+- **Caching** for hot queries (Redis). ETags for GETs.
+- **Asynchronous jobs** (Azure Functions) for emails, overdue scans, schedule generation.
+- **Rate limiting** and request size limits.
+
+**API Design**
+- API versioning and deprecation policy.
+- Pagination, filtering, sorting standards.
+- Consistent error model (ProblemDetails), correlation IDs.
+
+**Observability**
+- Structured logging (Serilog) + **Application Insights/OpenTelemetry** tracing.
+- Health checks and readiness/liveness probes.
+- Audit logging for admin‑sensitive operations.
+
+**Data/Schema**
+- EF Core migrations policy, blue/green or rolling deploys.
+- Seed data per environment; data masking in lower envs.
+- Backups + restore runbooks; GDPR/right‑to‑be‑forgotten flows.
+
+**DevX & Governance**
+- GitHub Actions CI/CD: build → test → SAST → deploy → smoke tests.
+- IaC (Bicep/Terraform) for App Service, SQL, Key Vault, Blob, Insights.
+- Quality gates: unit/integration/E2E tests; code coverage targets; OWASP checks.
+- Swagger with auth flows + example payloads; Postman collections checked into repo.
+
+---
+
+## 8) Postman Collection
+A ready‑to‑use collection (environment variables: `base_url`, `token`, `loanId`, `repaymentId`) should be included alongside this file in the project repo. Import, set `base_url`, register + login, paste token, and run requests in order.
+
+---
+
+## 9) Appendix: Example Response Wrapper
+```csharp
+public sealed record ApiResponse<T>(
+    bool Success,
+    string? Message,
+    IEnumerable<string>? Errors,
+    T? Data
+);
+```
+
+---
+
+**End of Guide** – Happy testing and shipping!
+
+
+
+
+
+
+
+
+
+
+
 # 💸 LoanWise – Smart Peer-to-Peer Lending Platform
 
 > **Borrow and lend securely, transparently, and efficiently.**
