@@ -32,6 +32,10 @@ namespace LoanWise.Application.Features.Auth.Commands.LoginUser
             if (!isPasswordValid)
                 return ApiResponse<string>.FailureResult("Invalid email or password.");
 
+            if (!user.IsActive)
+                return ApiResponse<string>.FailureResult("Account is disabled.");
+
+
             var token = _jwtTokenGenerator.GenerateToken(user);
             return ApiResponse<string>.SuccessResult(token, "Login successful.");
         }

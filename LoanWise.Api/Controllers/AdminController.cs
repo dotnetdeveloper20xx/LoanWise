@@ -1,6 +1,7 @@
 ﻿using LoanWise.Application.DTOs.Users;
 using LoanWise.Application.Features.Admin.Commands.ApproveLoan;
 using LoanWise.Application.Features.Admin.Commands.RejectLoan;
+using LoanWise.Application.Features.Admin.Commands.UpdateUserStatus;
 using LoanWise.Application.Features.Admin.Queries.GetUsers;
 using LoanWise.Application.Features.Repayments.Commands.CheckOverdueRepayments;
 using MediatR;
@@ -67,5 +68,15 @@ namespace LoanWise.Api.Controllers
             var result = await _mediator.Send(query);
             return Ok(result); // Always wrapped in ApiResponse<T>
         }
+
+        [HttpPut("users/{id}/status")]
+        public async Task<IActionResult> UpdateUserStatus(Guid id, [FromBody] bool isActive)
+        {
+            var result = await _mediator.Send(new UpdateUserStatusCommand(id, isActive));
+            return Ok(result); // Always wrapped in ApiResponse<bool>
+        }
+
+
+
     }
 }
