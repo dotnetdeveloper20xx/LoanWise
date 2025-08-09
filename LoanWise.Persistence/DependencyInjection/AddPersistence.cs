@@ -1,5 +1,4 @@
 ﻿using LoanWise.Application.Common.Interfaces;
-using LoanWise.Infrastructure.Common;
 using LoanWise.Infrastructure.Repositories;
 using LoanWise.Persistence.Context;
 using Microsoft.EntityFrameworkCore;
@@ -15,9 +14,6 @@ namespace LoanWise.Infrastructure.DependencyInjection
     {
         public static IServiceCollection AddPersistence(this IServiceCollection services, IConfiguration configuration)
         {
-            // Register domain event dispatcher
-            services.AddScoped<IDomainEventDispatcher, DomainEventDispatcher>();
-
             // Register DbContextOptions for LoanWiseDbContext
             services.AddDbContext<LoanWiseDbContext>(options =>
             {

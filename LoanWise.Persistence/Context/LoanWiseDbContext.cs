@@ -1,4 +1,5 @@
-﻿using LoanWise.Application.Common.Interfaces;
+﻿using System.Linq;
+using LoanWise.Application.Common.Interfaces;
 using LoanWise.Domain.Common;
 using LoanWise.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -36,70 +37,86 @@ namespace LoanWise.Persistence.Context
         public DbSet<CreditProfile> CreditProfiles => Set<CreditProfile>();
         public DbSet<EscrowTransaction> EscrowTransactions => Set<EscrowTransaction>();
         public DbSet<User> Users { get; set; } = default!;
-        public DbSet<RefreshToken> RefreshTokens { get; set; }
-
-        public DbSet<Notification> Notifications { get; set; }
-        
+        public DbSet<RefreshToken> RefreshTokens { get; set; } = default!;
+        public DbSet<Notification> Notifications { get; set; } = default!;
 
         public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {
+            // Collect domain events BEFORE saving
+            var entitiesWithEvents = ChangeTracker
+                .Entries<Entity>()
+                .Where(e => e.Entity.DomainEvents.Any())
+                .Select(e => e.Entity)
+                .ToList();
+
+            var domainEvents = entitiesWithEvents
+                .SelectMany(e => e.DomainEvents)
+                .ToList();
+
+            // Clear events on the entities
+            entitiesWithEvents.ForEach(e => e.ClearDomainEvents());
+
             var result = await base.SaveChangesAsync(cancellationToken);
 
-            if (_eventDispatcher is not null)
+            // Dispatch AFTER commit (simple approach; for guaranteed delivery use Outbox)
+            if (domainEvents.Count > 0 && _eventDispatcher is not null)
             {
-                var domainEntities = ChangeTracker.Entries<EntityWithEvents>()
-                    .Where(e => e.Entity.DomainEvents.Any())
-                    .Select(e => e.Entity);
-
-                var domainEvents = domainEntities
-                    .SelectMany(e => e.DomainEvents)
-                    .ToList();
-
-                foreach (var entity in domainEntities)
-                {
-                    entity.ClearDomainEvents();
-                }
-
-                if (domainEvents.Any())
-                {
-                    await _eventDispatcher.DispatchAsync(domainEvents);
-                }
+                await _eventDispatcher.DispatchAsync(domainEvents, cancellationToken);
             }
 
             return result;
         }
 
-
-        //todo: move these into configuration classes.
+        // TODO: move these into configuration classes.
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            // Loan.Amount
+            base.OnModelCreating(modelBuilder);
+
+            // Loan.Amount (Money VO)
             modelBuilder.Entity<Loan>(builder =>
             {
                 builder.OwnsOne(l => l.Amount, amt =>
                 {
-                    amt.Property(a => a.Value).HasColumnName("AmountValue").IsRequired();
-                    amt.Property(a => a.Currency).HasColumnName("AmountCurrency").HasDefaultValue("GBP").IsRequired();
+                    amt.Property(a => a.Value)
+                       .HasColumnName("AmountValue")
+                       .IsRequired();
+
+                    amt.Property(a => a.Currency)
+                       .HasColumnName("AmountCurrency")
+                       .HasDefaultValue("GBP")
+                       .IsRequired();
                 });
             });
 
-            // EscrowTransaction.Amount
+            // EscrowTransaction.Amount (Money VO)
             modelBuilder.Entity<EscrowTransaction>(builder =>
             {
                 builder.OwnsOne(e => e.Amount, amt =>
                 {
-                    amt.Property(a => a.Value).HasColumnName("EscrowAmountValue").IsRequired();
-                    amt.Property(a => a.Currency).HasColumnName("EscrowAmountCurrency").HasDefaultValue("GBP").IsRequired();
+                    amt.Property(a => a.Value)
+                       .HasColumnName("EscrowAmountValue")
+                       .IsRequired();
+
+                    amt.Property(a => a.Currency)
+                       .HasColumnName("EscrowAmountCurrency")
+                       .HasDefaultValue("GBP")
+                       .IsRequired();
                 });
             });
 
-            // Funding.Amount + prevent cascade delete
+            // Funding.Amount (Money VO) + prevent cascade delete to Lender
             modelBuilder.Entity<Funding>(builder =>
             {
                 builder.OwnsOne(f => f.Amount, amt =>
                 {
-                    amt.Property(a => a.Value).HasColumnName("FundingAmountValue").IsRequired();
-                    amt.Property(a => a.Currency).HasColumnName("FundingAmountCurrency").HasDefaultValue("GBP").IsRequired();
+                    amt.Property(a => a.Value)
+                       .HasColumnName("FundingAmountValue")
+                       .IsRequired();
+
+                    amt.Property(a => a.Currency)
+                       .HasColumnName("FundingAmountCurrency")
+                       .HasDefaultValue("GBP")
+                       .IsRequired();
                 });
 
                 builder
@@ -109,14 +126,13 @@ namespace LoanWise.Persistence.Context
                     .OnDelete(DeleteBehavior.Restrict);
             });
 
-            // Repayment.Amount
+            // Repayment.Amount: you said this is now a DECIMAL property named RepaymentAmount
             modelBuilder.Entity<Repayment>(builder =>
             {
-                builder.OwnsOne(r => r.Amount, amt =>
-                {
-                    amt.Property(a => a.Value).HasColumnName("RepaymentAmountValue").IsRequired();
-                    amt.Property(a => a.Currency).HasColumnName("RepaymentAmountCurrency").HasDefaultValue("GBP").IsRequired();
-                });
+                builder.Property(r => r.RepaymentAmount)
+                       .HasColumnName("RepaymentAmount")
+                       .HasColumnType("decimal(18,2)")
+                       .IsRequired();
             });
 
             // CreditProfile
@@ -130,15 +146,20 @@ namespace LoanWise.Persistence.Context
                     .HasForeignKey<CreditProfile>(c => c.UserId);
             });
 
-            //RefreshTokens
+            // RefreshTokens
             modelBuilder.Entity<RefreshToken>(builder =>
             {
                 builder.HasKey(rt => rt.Id);
-                builder.Property(rt => rt.TokenHash).IsRequired().HasMaxLength(256);
-                builder.HasIndex(rt => new { rt.UserId, rt.TokenHash }).IsUnique();
+
+                builder.Property(rt => rt.TokenHash)
+                       .IsRequired()
+                       .HasMaxLength(256);
+
+                builder.HasIndex(rt => new { rt.UserId, rt.TokenHash })
+                       .IsUnique();
 
                 builder.HasOne<User>()
-                       .WithMany() // or WithMany(u => u.RefreshTokens) if you add nav property
+                       .WithMany() // or .WithMany(u => u.RefreshTokens) if you add a nav property
                        .HasForeignKey(rt => rt.UserId);
             });
 
@@ -153,8 +174,6 @@ namespace LoanWise.Persistence.Context
                     }
                 }
             }
-
-            base.OnModelCreating(modelBuilder);
         }
     }
 }

@@ -4,6 +4,6 @@ namespace LoanWise.Application.Common.Interfaces
 {
     public interface IDomainEventDispatcher
     {
-        Task DispatchAsync(IEnumerable<IDomainEvent> domainEvents);
+        Task DispatchAsync(IEnumerable<IDomainEvent> events, CancellationToken ct);
     }
 }

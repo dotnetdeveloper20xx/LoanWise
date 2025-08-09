@@ -25,9 +25,7 @@ namespace LoanWise.Application.Common.Interfaces
 
         /// <summary>Retrieves loans by status (e.g., Pending, Approved, Funded, Disbursed, Completed).</summary>
         Task<IReadOnlyList<Loan>> GetByStatusAsync(LoanStatus status, CancellationToken cancellationToken);
-
-        /// <summary>Saves changes if the repository uses a Unit of Work pattern.</summary>
-        Task SaveChangesAsync(CancellationToken cancellationToken);
+                
 
         /// <summary>Retrieves all loans including their fundings for projection purposes.</summary>
         Task<IReadOnlyList<Loan>> GetAllIncludingFundingsAsync(CancellationToken cancellationToken);
@@ -37,5 +35,9 @@ namespace LoanWise.Application.Common.Interfaces
 
         /// <summary>Retrieves all loans including repayments (admin stats, reporting, etc.).</summary>
         Task<IReadOnlyList<Loan>> GetAllIncludingRepaymentsAsync(CancellationToken cancellationToken);
+
+        /// <summary>Saves changes if the repository uses a Unit of Work pattern.</summary>
+        Task SaveChangesAsync(CancellationToken cancellationToken);
+
     }
 }

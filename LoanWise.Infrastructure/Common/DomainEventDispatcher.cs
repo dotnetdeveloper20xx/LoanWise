@@ -4,21 +4,15 @@ using MediatR;
 
 namespace LoanWise.Infrastructure.Common
 {
-    public class DomainEventDispatcher : IDomainEventDispatcher
+    public sealed class DomainEventDispatcher : IDomainEventDispatcher
     {
         private readonly IMediator _mediator;
+        public DomainEventDispatcher(IMediator mediator) => _mediator = mediator;
 
-        public DomainEventDispatcher(IMediator mediator)
+        public async Task DispatchAsync(IEnumerable<IDomainEvent> events, CancellationToken ct)
         {
-            _mediator = mediator;
-        }
-
-        public async Task DispatchAsync(IEnumerable<IDomainEvent> domainEvents)
-        {
-            foreach (var domainEvent in domainEvents)
-            {
-                await _mediator.Publish(domainEvent);
-            }
+            foreach (var e in events)
+                await _mediator.Publish(e, ct);
         }
     }
 }

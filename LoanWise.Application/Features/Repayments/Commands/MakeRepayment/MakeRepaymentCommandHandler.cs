@@ -31,14 +31,14 @@ namespace LoanWise.Application.Features.Repayments.Commands.MakeRepayment
                 return ApiResponse<Guid>.FailureResult("Repayment not found.");
             }
 
-            var repayment = loan.Repayments.First(r => r.Id == request.RepaymentId);
+            Domain.Entities.Repayment repayment = loan.Repayments.First(r => r.Id == request.RepaymentId);
 
             if (repayment.IsPaid)
             {
                 return ApiResponse<Guid>.FailureResult("This repayment is already marked as paid.");
             }
 
-            repayment.MarkAsPaid(DateTime.UtcNow);
+            repayment.MarkAsPaid(DateTime.UtcNow, loan.BorrowerId);
 
             await _loanRepository.UpdateAsync(loan, cancellationToken);
 

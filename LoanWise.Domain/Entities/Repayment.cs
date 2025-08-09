@@ -1,12 +1,14 @@
-﻿using System;
+﻿using LoanWise.Domain.Common;
+using LoanWise.Domain.Events;
 using LoanWise.Domain.ValueObjects;
+using System;
 
 namespace LoanWise.Domain.Entities
 {
     /// <summary>
     /// Represents a scheduled repayment associated with a loan.
     /// </summary>
-    public class Repayment
+    public class Repayment : Entity
     {
         /// <summary>
         /// Unique identifier for the repayment entry.
@@ -69,13 +71,16 @@ namespace LoanWise.Domain.Entities
         /// Marks the repayment as paid.
         /// </summary>
         /// <param name="paymentDate">Date the payment was made.</param>
-        public void MarkAsPaid(DateTime paymentDate)
+        public void MarkAsPaid(DateTime paymentDate, Guid borrowerId)
         {
             if (IsPaid)
                 throw new InvalidOperationException("This repayment is already marked as paid.");
 
             IsPaid = true;
             PaidOn = paymentDate;
+
+            AddDomainEvent(new RepaymentPaidEvent(LoanId, borrowerId, Id, RepaymentAmount));
+
         }
 
         /// <summary>
@@ -84,6 +89,16 @@ namespace LoanWise.Domain.Entities
         public bool IsOverdue(DateTime currentDate)
         {
             return !IsPaid && currentDate > DueDate;
+        }
+
+        public void MarkDue()
+        {
+            AddDomainEvent(new RepaymentDueEvent(LoanId, Loan.BorrowerId, Id, DueDate, RepaymentAmount));
+        }
+
+        public void MarkOverdue()
+        {
+            AddDomainEvent(new RepaymentOverdueEvent(LoanId, Loan.BorrowerId, Id, DueDate, RepaymentAmount));
         }
     }
 }

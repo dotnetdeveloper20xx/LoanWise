@@ -1,4 +1,5 @@
 ﻿using LoanWise.Application.Common.Interfaces;
+using LoanWise.Domain.Entities;
 using LoanWise.Domain.Enums;
 using MediatR;
 using StoreBoost.Application.Common.Models;
@@ -8,10 +9,12 @@ namespace LoanWise.Application.Features.Admin.Commands.ApproveLoan
     public class ApproveLoanCommandHandler : IRequestHandler<ApproveLoanCommand, ApiResponse<Guid>>
     {
         private readonly ILoanRepository _loanRepository;
+        private readonly INotificationRepository _notificationRepository;
 
-        public ApproveLoanCommandHandler(ILoanRepository loanRepository)
+        public ApproveLoanCommandHandler(ILoanRepository loanRepository, INotificationRepository notificationRepository)
         {
             _loanRepository = loanRepository;
+            _notificationRepository = notificationRepository;
         }
 
         public async Task<ApiResponse<Guid>> Handle(ApproveLoanCommand request, CancellationToken cancellationToken)
@@ -31,6 +34,17 @@ namespace LoanWise.Application.Features.Admin.Commands.ApproveLoan
             await _loanRepository.UpdateAsync(loan, cancellationToken);
             await _loanRepository.SaveChangesAsync(cancellationToken);
 
+            // After changing loan status to Approved
+            _ = _notificationRepository.AddAsync(new Notification
+            {
+                Id = Guid.NewGuid(),
+                UserId = loan.BorrowerId,
+                Title = "Your loan has been approved",
+                Message = $"Loan {loan.Id} has been approved and is now open for funding.",
+                IsRead = false,
+                CreatedAtUtc = DateTime.UtcNow
+            });
+           
             return ApiResponse<Guid>.SuccessResult(loan.Id, "Loan approved.");
         }
     }

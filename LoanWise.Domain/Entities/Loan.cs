@@ -9,7 +9,7 @@ namespace LoanWise.Domain.Entities
     /// <summary>
     /// Represents a loan application made by a borrower.
     /// </summary>
-    public class Loan : EntityWithEvents
+    public class Loan : Entity
     {
         private readonly List<Funding> _fundings = new();
         private readonly List<Repayment> _repayments = new();
@@ -52,19 +52,25 @@ namespace LoanWise.Domain.Entities
 
             RiskLevel = riskLevel;
             Status = LoanStatus.Approved;
+
+            AddDomainEvent(new LoanApprovedEvent(Id, BorrowerId));
         }
 
-        public void Reject()
+        public void Reject(string reason)
         {
             if (Status != LoanStatus.Pending)
                 throw new InvalidOperationException("Only pending loans can be rejected.");
 
             Status = LoanStatus.Rejected;
+
+            AddDomainEvent(new LoanRejectedEvent(Id, BorrowerId, reason));
         }
 
         public void AddFunding(Funding funding)
         {
             _fundings.Add(funding);
+
+            AddDomainEvent(new FundingAddedEvent(Id, funding.LenderId, funding.Amount.Value));
         }
 
         public void AddRepayment(Repayment repayment)
@@ -105,6 +111,8 @@ namespace LoanWise.Domain.Entities
                 throw new InvalidOperationException("Only fully funded loans can be disbursed.");
 
             Status = LoanStatus.Disbursed;
+
+            AddDomainEvent(new LoanDisbursedEvent(Id, BorrowerId));
         }
 
         public void GenerateRepaymentSchedule()

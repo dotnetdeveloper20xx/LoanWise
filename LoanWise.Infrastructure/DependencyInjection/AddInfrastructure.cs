@@ -1,5 +1,6 @@
 ﻿using LoanWise.Application.Common.Interfaces;
 using LoanWise.Domain.Entities;
+using LoanWise.Infrastructure.Common;
 using LoanWise.Infrastructure.Identity;
 using LoanWise.Infrastructure.Repositories;
 using LoanWise.Infrastructure.Services;
@@ -29,7 +30,8 @@ public static class AddInfrastructureServices
 
         services.AddScoped<IEmailService, SendGridEmailService>();
 
-
+        services.AddScoped<INotificationRepository, NotificationRepository>();
+        services.AddScoped<IDomainEventDispatcher, DomainEventDispatcher>();
         return services;
     }
 }
