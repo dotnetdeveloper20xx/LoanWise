@@ -1,8 +1,7 @@
-﻿using LoanWise.Application.DependencyInjection;
-using LoanWise.Infrastructure.DependencyInjection;
-using LoanWise.Infrastructure.Notifications;
-using LoanWise.Persistence.Context;
-using LoanWise.Persistence.Setup;
+﻿using LoanWise.Api.Auth;                              // SignalRUserIdProvider
+using LoanWise.Application.DependencyInjection;       // AddApplication()
+using LoanWise.Infrastructure.DependencyInjection;    // AddInfrastructure(), AddPersistence()
+using LoanWise.Infrastructure.Notifications;          // EmailNotificationService (registered in Infrastructure)
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.IdentityModel.Tokens;
@@ -12,30 +11,18 @@ using System.Text;
 var builder = WebApplication.CreateBuilder(args);
 
 // ─────────────────────────────────────────────
-// Register Services
+// Layers (Clean Architecture)
 // ─────────────────────────────────────────────
-
-// Clean Architecture layers
 builder.Services
     .AddApplication()
     .AddInfrastructure(builder.Configuration)
     .AddPersistence(builder.Configuration);
 
-// Controllers and Swagger
+// ─────────────────────────────────────────────
+// MVC + Swagger
+// ─────────────────────────────────────────────
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-
-
-builder.Services.AddSingleton<SignalRNotificationService>();   // API adapter
-builder.Services.AddScoped<EmailNotificationService>();        // from Infra registration above if not already
-builder.Services.AddScoped<INotificationService>(sp =>
-{
-    var signalr = sp.GetRequiredService<SignalRNotificationService>();
-    var email = sp.GetRequiredService<EmailNotificationService>();
-    return new CompositeNotificationService(signalr, email);
-});
-
-
 
 builder.Services.AddSwaggerGen(options =>
 {
@@ -49,27 +36,25 @@ builder.Services.AddSwaggerGen(options =>
         BearerFormat = "JWT",
         In = ParameterLocation.Header,
         Description = "Enter 'Bearer {your token}'",
-        Reference = new OpenApiReference
-        {
-            Type = ReferenceType.SecurityScheme,
-            Id = "Bearer"
-        }
+        Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "Bearer" }
     };
 
     options.AddSecurityDefinition("Bearer", jwtScheme);
     options.AddSecurityRequirement(new OpenApiSecurityRequirement
     {
-        {
-            jwtScheme,
-            Array.Empty<string>()
-        }
+        { jwtScheme, Array.Empty<string>() }
     });
 });
 
 // ─────────────────────────────────────────────
-// JWT Authentication
+// SignalR (in-app notifications)
 // ─────────────────────────────────────────────
+builder.Services.AddSignalR();
+builder.Services.AddSingleton<IUserIdProvider, SignalRUserIdProvider>(); // maps JWT user id to SignalR User()
 
+// ─────────────────────────────────────────────
+// Authentication / Authorization
+// ─────────────────────────────────────────────
 var jwtKey = builder.Configuration["Jwt:Key"] ?? "super-secret-key";
 var keyBytes = Encoding.UTF8.GetBytes(jwtKey);
 
@@ -78,47 +63,75 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     {
         options.TokenValidationParameters = new TokenValidationParameters
         {
-            ValidateIssuer = false, // Set to true if using issuer validation
-            ValidateAudience = false, // Set to true if using audience validation
+            ValidateIssuer = false,
+            ValidateAudience = false,
             ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
             IssuerSigningKey = new SymmetricSecurityKey(keyBytes)
+        };
+
+        // Allow JWT via query string for SignalR hub connections
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = ctx =>
+            {
+                var accessToken = ctx.Request.Query["access_token"];
+                var path = ctx.HttpContext.Request.Path;
+                if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs/notifications"))
+                {
+                    ctx.Token = accessToken;
+                }
+                return Task.CompletedTask;
+            }
         };
     });
 
 builder.Services.AddAuthorization();
 
-var app = builder.Build();
+// ─────────────────────────────────────────────
+// CORS (if a SPA runs on a different origin)
+// ─────────────────────────────────────────────
+// builder.Services.AddCors(o => o.AddPolicy("Client", p =>
+//     p.AllowAnyHeader().AllowAnyMethod().AllowCredentials()
+//      .WithOrigins("http://localhost:3000", "http://localhost:5173")));
 
 // ─────────────────────────────────────────────
-// Configure HTTP Pipeline
+// Composite notifier: SignalR + Email
 // ─────────────────────────────────────────────
+// EmailNotificationService is registered in AddInfrastructure(); SignalR adapter lives in API.
+builder.Services.AddSingleton<SignalRNotificationService>(); // stateless adapter for hub
+builder.Services.AddScoped<INotificationService>(sp =>
+{
+    var signalr = sp.GetRequiredService<SignalRNotificationService>();
+    var email = sp.GetRequiredService<EmailNotificationService>(); // from Infrastructure DI
+    return new CompositeNotificationService(signalr, email);
+});
+
+// ─────────────────────────────────────────────
+// Build & Pipeline
+// ─────────────────────────────────────────────
+var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
-    app.UseSwaggerUI(options =>
+    app.UseSwaggerUI(c =>
     {
-        options.SwaggerEndpoint("/swagger/v1/swagger.json", "LoanWise API v1");
-        options.RoutePrefix = string.Empty;
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "LoanWise API v1");
+        c.RoutePrefix = string.Empty;
     });
 }
 
 app.UseHttpsRedirection();
 
-app.UseAuthentication(); // Must be before UseAuthorization
+// app.UseCors("Client"); // uncomment if you enabled the CORS policy above
+
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
 
+// Map the notifications hub
 app.MapHub<NotificationsHub>("/hubs/notifications");
-
-//// Optional: DB seeding logic
-//using (var scope = app.Services.CreateScope())
-//{
-//    var dbContext = scope.ServiceProvider.GetRequiredService<LoanWiseDbContext>();
-//    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
-//    await DbInitializer.InitializeAsync(dbContext, logger);
-//}
 
 app.Run();

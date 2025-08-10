@@ -3,55 +3,44 @@ using LoanWise.Domain.Entities;
 using LoanWise.Domain.Events;
 using MediatR;
 
-namespace LoanWise.Infrastructure.Notifications.Handlers
+public sealed class LoanFundedEventHandler : INotificationHandler<LoanFundedEvent>
 {
-    public sealed class LoanFundedEventHandler : INotificationHandler<LoanFundedEvent>
+    private readonly INotificationRepository _repo;
+    private readonly ILoanRepository _loans;
+    private readonly INotificationService _notify; // <— inject
+
+    public LoanFundedEventHandler(INotificationRepository repo, ILoanRepository loans, INotificationService notify)
     {
-        private readonly INotificationRepository _repo;
-        private readonly ILoanRepository _loans;
+        _repo = repo; _loans = loans; _notify = notify;
+    }
 
-        public LoanFundedEventHandler(INotificationRepository repo, ILoanRepository loans)
+    public async Task Handle(LoanFundedEvent e, CancellationToken ct)
+    {
+        var loan = await _loans.GetByIdAsync(e.LoanId, ct);
+        if (loan is null) return;
+
+        var borrowerTitle = e.IsFullyFunded ? "Loan fully funded 🎉" : "New funding received";
+        var borrowerMsg = e.IsFullyFunded
+            ? $"Your loan {e.LoanId} received £{e.Amount:N2} and is now fully funded."
+            : $"Your loan {e.LoanId} received £{e.Amount:N2}.";
+
+        // 1) Persist (in-app inbox)
+        await _repo.AddAsync(new Notification
         {
-            _repo = repo;
-            _loans = loans;
-        }
+            Id = Guid.NewGuid(),
+            UserId = loan.BorrowerId,
+            Title = borrowerTitle,
+            Message = borrowerMsg,
+            IsRead = false,
+            CreatedAtUtc = DateTime.UtcNow
+        }, ct);
 
-        public async Task Handle(LoanFundedEvent e, CancellationToken ct)
-        {
-            // Load the loan to get the borrower (event no longer carries BorrowerId)
-            var loan = await _loans.GetByIdAsync(e.LoanId, ct);
-            if (loan is null) return;
+        // 2) Push (SignalR + Email through the composite)
+        await _notify.NotifyBorrowerAsync(loan.BorrowerId, borrowerTitle, borrowerMsg, ct);
 
-            var notifications = new List<Notification>
-            {
-                // Notify borrower about the new funding and whether it's now fully funded
-                new()
-                {
-                    Id = Guid.NewGuid(),
-                    UserId = loan.BorrowerId, // recipient
-                    Title = e.IsFullyFunded ? "Loan fully funded" : "New funding received",
-                    Message = e.IsFullyFunded
-                        ? $"Your loan {e.LoanId} just received £{e.Amount:N2} and is now fully funded."
-                        : $"Your loan {e.LoanId} just received £{e.Amount:N2}.",
-                    IsRead = false,
-                    CreatedAtUtc = DateTime.UtcNow
-                },
-
-                // Optional: confirmation to the contributing lender
-                new()
-                {
-                    Id = Guid.NewGuid(),
-                    UserId = e.LenderId, // recipient
-                    Title = "Funding confirmed",
-                    Message = $"You funded £{e.Amount:N2} to loan {e.LoanId}.",
-                    IsRead = false,
-                    CreatedAtUtc = DateTime.UtcNow
-                }
-            };
-
-            // Persist notifications
-
-            foreach (var n in notifications) await _repo.AddAsync(n, ct);
-        }
+        // Optional: notify the lender who funded
+        var lenderTitle = "Funding confirmed";
+        var lenderMsg = $"You funded £{e.Amount:N2} to loan {e.LoanId}.";
+        await _notify.NotifyLenderAsync(e.LenderId, lenderTitle, lenderMsg, ct);
     }
 }

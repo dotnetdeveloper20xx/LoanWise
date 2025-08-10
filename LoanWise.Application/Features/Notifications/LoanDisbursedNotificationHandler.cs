@@ -9,11 +9,16 @@ namespace LoanWise.Application.Features.Notifications
     {
         private readonly INotificationRepository _repo;
         private readonly ILoanRepository _loans;
+        private readonly INotificationService _notify; // <- push (SignalR + Email)
 
-        public LoanDisbursedNotificationHandler(INotificationRepository repo, ILoanRepository loans)
+        public LoanDisbursedNotificationHandler(
+            INotificationRepository repo,
+            ILoanRepository loans,
+            INotificationService notify)
         {
             _repo = repo;
             _loans = loans;
+            _notify = notify;
         }
 
         public async Task Handle(LoanDisbursedEvent e, CancellationToken ct)
@@ -21,38 +26,46 @@ namespace LoanWise.Application.Features.Notifications
             var loan = await _loans.GetByIdAsync(e.LoanId, ct);
             if (loan is null) return;
 
-            var notifications = new List<Notification>
-        {
-            new()
-            {
-                Id = Guid.NewGuid(),
-                UserId = loan.BorrowerId, // recipient
-                Title = "Loan disbursed",
-                Message = $"Your loan {e.LoanId} has been disbursed on {e.DisbursedOn:yyyy-MM-dd}.",
-                IsRead = false,
-                CreatedAtUtc = DateTime.UtcNow
-            }
-        };
+            var borrowerTitle = "Loan disbursed";
+            var borrowerMsg = $"Your loan {e.LoanId} has been disbursed on {e.DisbursedOn:yyyy-MM-dd}.";
 
-            // Optional: notify lenders too
+            // 1) Push to borrower
+            await _notify.NotifyBorrowerAsync(loan.BorrowerId, borrowerTitle, borrowerMsg, ct);
+
+            // 2) Persist borrower inbox
+            var notifications = new List<Notification>
+            {
+                new()
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = loan.BorrowerId,
+                    Title = borrowerTitle,
+                    Message = borrowerMsg,
+                    IsRead = false,
+                    CreatedAtUtc = DateTime.UtcNow
+                }
+            };
+
+            // Optional: notify lenders too (push + persist)
+            var lenderTitle = "A funded loan was disbursed";
+            var lenderMsg = $"Loan {e.LoanId} you helped fund has been disbursed.";
             foreach (var lenderId in loan.Fundings.Select(f => f.LenderId).Distinct())
             {
+                await _notify.NotifyLenderAsync(lenderId, lenderTitle, lenderMsg, ct);
+
                 notifications.Add(new Notification
                 {
                     Id = Guid.NewGuid(),
-                    UserId = lenderId, // recipients (lenders)
-                    Title = "A funded loan was disbursed",
-                    Message = $"Loan {e.LoanId} you helped fund has been disbursed.",
+                    UserId = lenderId,
+                    Title = lenderTitle,
+                    Message = lenderMsg,
                     IsRead = false,
                     CreatedAtUtc = DateTime.UtcNow
                 });
             }
 
-            foreach (var notification in notifications)
-            {
-                await _repo.AddAsync(notification, ct);
-            }
+            // 3) Persist inbox items (loop is fine; switch to AddRangeAsync if you added it)
+            foreach (var n in notifications) { await _repo.AddAsync(n, ct); }
         }
     }
-
 }
