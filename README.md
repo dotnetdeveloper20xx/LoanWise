@@ -1,7 +1,260 @@
+# LoanWise — Event‑Driven Loan Management (Clean Architecture, .NET 9, Azure)
+
+LoanWise is a peer‑to‑peer loan platform built to demonstrate senior‑level architecture and delivery. It showcases a clean, testable .NET 9 backend using CQRS + MediatR, a rich DTO boundary, role‑based security, and **event‑driven notifications** (SignalR + SendGrid) so borrowers and lenders don’t have to poll dashboards.
+---
+
+## Table of Contents
+- [Vision (User Impact)](#vision-user-impact)
+- [Architecture Overview](#architecture-overview)
+- [Key Features](#key-features)
+- [Event‑Driven Notifications](#event-driven-notifications)
+- [API Surface](#api-surface)
+- [Getting Started (Local Dev)](#getting-started-local-dev)
+- [Configuration](#configuration)
+- [Testing Strategy](#testing-strategy)
+- [Security & Production Hardening](#security--production-hardening)
+- [Roadmap](#roadmap)
+- [About the Lead Developer](#about-the-lead-developer)
+- [License](#license)
+
+---
+
+## Vision (User Impact)
+
+**Borrowers** can apply for loans, get transparent terms, and track a clear monthly schedule.  
+**Lenders** can browse open loans, fund partially across multiple loans, and track returns.  
+**Admins** approve/disburse loans, monitor health/overdues, and audit key actions.
+
+**Why it matters:** Traditionally, borrowers/lenders *poll* dashboards to see changes. LoanWise switches to **push‑based** updates via in‑app SignalR and email (SendGrid), making the UX feel instant and reducing manual checking.
+
+---
+
+## Architecture Overview
+
+**Architecture style:** Clean Architecture + CQRS with MediatR.
+
+**Layers**
+- **LoanWise.Api** – Controllers, JWT auth, Swagger, exception middleware, SignalR hub.
+- **LoanWise.Application** – Commands/queries, validators, AutoMapper profiles, MediatR behaviours (Validation, Logging, Performance), domain event handlers.
+- **LoanWise.Domain** – Entities, value objects, domain rules, domain events.
+- **LoanWise.Infrastructure** – External services (SendGrid, user context), notification services, identity helpers.
+- **LoanWise.Persistence** – EF Core DbContext & repositories for SQL Server.
+
+**MediatR Behaviours**
+- Validation (FluentValidation) → reject early.
+- Logging → structured request/response metadata.
+- Performance → timing; alerts on slow handlers.
+- (Optional) Caching/Retry patterns for queries/integrations.
+
+**Why this setup?** It keeps the domain clean, isolates infrastructure, centralises cross‑cutting concerns, and makes it easy to unit‑test each slice. It also sets up a natural path to microservices or serverless functions later (outbox, queues).
+
+---
+
+## Key Features
+
+- **Loan lifecycle:** apply → fund (multi‑lender) → disburse → auto‑generate monthly repayments → pay installments.
+- **Dashboards & Queries:** borrower dashboard, lender portfolio summary, admin loan stats/overdue checks.
+- **Auth:** JWT with roles (**Borrower**, **Lender**, **Admin**) and role‑secured endpoints.
+- **DTO boundary + AutoMapper:** clean request/response contracts across the API.
+- **Global error handling:** middleware returning a consistent `ApiResponse<T>`.
+- **Azure‑ready integrations:** SendGrid for email; designed to work with SQL, Blob, Key Vault, and App Insights.
+
+---
+
+## Event‑Driven Notifications
+
+To eliminate dashboard polling:
+- **Domain events** are raised for key state changes:
+  - `LoanFundedEvent(LoanId, FundingId, LenderId, Amount, IsFullyFunded)`
+  - `LoanDisbursedEvent(LoanId, DisbursedOn)`
+  - `RepaymentPaidEvent(LoanId, RepaymentId, PaidOn)`
+- **Notification handlers** subscribe to these events and notify:
+  - **Borrower:** when the loan gets funded/disbursed or a repayment is paid.
+  - **Lenders:** when a loan they funded receives a repayment or is disbursed.
+- **Channels**
+  - **SignalR** (in‑app, instant) via `NotificationsHub` and a small `SignalRNotificationService` adapter.
+  - **SendGrid** (email) via `EmailNotificationService` using repository lookups for recipient emails.
+- **Composite notifier**: API composition wires both channels so a single `INotificationService` call fans out to SignalR and Email.
+
+*Planned:* a scheduled **Overdue scan** raises `RepaymentOverdueEvent` to notify borrower + lenders if a due date passes unpaid.
+
+---
+
+## API Surface
+
+All responses are wrapped in a consistent `ApiResponse<T>`.
+
+**Auth**
+- `POST /api/Auth/register` – create user with role (Borrower | Lender | Admin).
+- `POST /api/Auth/login` – returns JWT.
+
+**Users**
+- `GET /api/users/me` – current user profile (any role).
+
+**Borrower**
+- `POST /api/loans/apply` – apply for a loan.
+- `GET /api/loans/my` – borrower’s loans.
+- `GET /api/loans/borrowers/dashboard` – borrower dashboard.
+
+**Lender**
+- `GET /api/loans/open` – browse open loans to fund.
+- `POST /api/fundings/{loanId}` – fund a loan (partial/multi‑lender).
+- `GET /api/lenders/portfolio` – portfolio summary.
+
+**Admin**
+- `POST /api/loans/{loanId}/disburse` – disburse fully‑funded loan (Admin only).
+- `GET /api/loans/{loanId}/repayments` – repayment schedule by loan (Admin | Borrower).
+- `POST /api/repayments/{repaymentId}/pay` – mark repayment paid (Borrower).
+- `POST /api/admin/repayments/check-overdue` – flag overdue repayments.
+- `GET /api/loans/loans/stats` – loan stats by status.
+
+> A full Postman collection is included for end‑to‑end testing: fund → disburse → repay.
+
+---
+
+## Getting Started (Local Dev)
+
+### Prerequisites
+- .NET 9 SDK
+- SQL Server (local or container)
+- SendGrid API key (for email channel; optional during dev)
+
+### Clone & restore
+```bash
+git clone <this-repo-url>
+cd LoanWise
+dotnet restore
+```
+
+### Configure settings
+Create or update `appsettings.Development.json` in **LoanWise.Api**:
+```json
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Server=.;Database=LoanWiseDb;Trusted_Connection=True;Encrypt=False;TrustServerCertificate=True;MultipleActiveResultSets=true"
+  },
+  "Jwt": {
+    "Key": "YOUR_SUPER_SECRET_KEY_CHANGE_ME",
+    "Issuer": "LoanWise"
+  },
+  "Email": {
+    "Enabled": true,
+    "SendHtml": false,
+    "FromEmail": "no-reply@loanwise.app",
+    "FromName": "LoanWise",
+    "ApiKey": "YOUR_SENDGRID_API_KEY"
+  }
+}
+```
+> For secrets, prefer **dotnet user-secrets** locally and **Azure Key Vault** in the cloud.
+
+### Database
+```bash
+dotnet ef database update --project LoanWise.Persistence --startup-project LoanWise.Api
+```
+
+### Run the API
+```bash
+dotnet run --project LoanWise.Api
+```
+Swagger will be available at `https://localhost:<port>/swagger`.
+
+### SignalR hub
+The in‑app notifications hub is mapped at:  
+`/hubs/notifications`
+
+### Postman (recommended)
+Import the provided collection, set environment variables (`base_url`, `token`, `loanId`, `repaymentId`), then run the flow:
+1. Register & Login (as Borrower, Lender, Admin)
+2. Lender funds a loan
+3. Admin disburses
+4. Borrower pays a repayment
+
+---
+
+## Configuration
+
+**Email (SendGrid)**  
+- Options class: `SendGridOptions` (bound to `"Email"` section).  
+- DI registers a singleton `ISendGridClient` + scoped `EmailNotificationService`.
+
+**JWT**  
+- Provide a strong `Jwt:Key` and set `Issuer` accordingly.
+
+**Connection Strings**  
+- Update `ConnectionStrings:DefaultConnection` per environment.
+
+---
+
+## Testing Strategy
+
+- **Unit tests** for:
+  - Command handlers (fund, disburse, repay) – domain rules & edge cases.
+  - Notification handlers – assert correct recipients/messages and channel calls (mock `INotificationService`).
+
+- **Integration tests** for:
+  - End‑to‑end flows (fund → disburse → pay): assert persisted side effects (repayment schedule, lender allocations, notifications).
+
+- **Behaviors**: unit test Validation/Logging/Performance behaviors in isolation.
+
+---
+
+## Security & Production Hardening
+
+- Enforce `[Authorize(Roles="...")]` by endpoint; add role‑based tests.
+- Store secrets in **Key Vault**; never commit keys.
+- Add **retry/circuit‑breaker** (Polly) for external IO; idempotency for POSTs.
+- Add **caching** (Redis) for hot queries; ETags for GETs.
+- Add **observability**: Serilog + App Insights/OpenTelemetry tracing; health checks.
+- Add **API versioning**, pagination/filtering standards; consistent ProblemDetails.
+- Consider **outbox** pattern for exactly‑once event delivery.
+
+---
+
+## Roadmap
+
+- Overdue scanning job → `RepaymentOverdueEvent` notifications.
+- Composite notification wired by default (SignalR + Email).
+- Lender return calculation and richer portfolio analytics.
+- Export PDFs (summaries, certificates).
+- Optional KYC mock/score simulation.
+
+---
+
+## About the Lead Developer
+
+Hi, I’m **Faz Ahmed** — a Senior/Lead .NET Engineer with 13+ years of experience delivering scalable, cloud‑ready systems.
+
+**What I bring:**
+- **Architecture & Delivery:** Clean Architecture, CQRS + MediatR, DDD‑influenced modeling, rock‑solid domain rules, and production‑grade cross‑cutting (validation, logging, performance, error handling).
+- **.NET & Azure depth:** ASP.NET Core, EF Core, SQL Server, Azure App Service, Functions, Service Bus/Event Grid (event‑driven), Cosmos DB, Blob Storage, App Insights, Key Vault.
+- **Modernization:** I specialize in migrating legacy ASP.NET/.NET Framework apps to modern .NET and cloud‑native patterns with CI/CD.
+- **Frontend capability:** SPA experience across **React**, **Angular**, and **Blazor** for end‑to‑end delivery and rapid iteration.
+- **DevOps & Quality:** GitHub Actions/Azure DevOps pipelines, IaC, automated tests, and pragmatic governance.
+- **Leadership:** Mentoring, pair‑design, code reviews, and shaping engineering culture. I lead with clarity, empathy, and a bias for maintainability.
+
+If you’re reviewing this repo for a role: this project is designed to make my thinking visible — from **design choices** to **operational readiness** — and show how I ship features that make users’ lives easier.
+
+---
+
+## License
+
+MIT — do what you like, attribution appreciated.
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 # LoanWise – Project Guide (Vision • Architecture • Testing • Prod Hardening)
-**Generated:** 2025-08-08 07:01 UTC
-
 ---
 
 ## 1) Product Vision (User’s Eye View)
