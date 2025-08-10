@@ -129,7 +129,7 @@ namespace LoanWise.Domain.Entities
                     id: Guid.NewGuid(),
                     loanId: this.Id,
                     dueDate: dueDate,
-                    amount: new Money(monthlyInstallment)
+                    amount: monthlyInstallment
                 );
 
                 _repayments.Add(repayment);

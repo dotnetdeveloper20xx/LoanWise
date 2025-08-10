@@ -1,8 +1,5 @@
 ﻿using LoanWise.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
-using System.Collections.Generic;
-
-
 
 namespace LoanWise.Application.Common.Interfaces
 {
@@ -12,6 +9,10 @@ namespace LoanWise.Application.Common.Interfaces
     /// </summary>
     public interface IApplicationDbContext
     {
+        // =========================
+        // Core Lending
+        // =========================
+
         /// <summary>
         /// Loans submitted by borrowers.
         /// </summary>
@@ -28,12 +29,35 @@ namespace LoanWise.Application.Common.Interfaces
         DbSet<Funding> Fundings { get; }
 
         /// <summary>
+        /// Per-lender repayment allocations.
+        /// </summary>
+        DbSet<LenderRepayment> LenderRepayments { get; }
+
+        // =========================
+        // User & Security
+        // =========================
+
+        /// <summary>
+        /// Application users (borrowers, lenders, admins).
+        /// </summary>
+        DbSet<User> Users { get; }
+
+        /// <summary>
+        /// Refresh tokens for JWT authentication.
+        /// </summary>
+        DbSet<RefreshToken> RefreshTokens { get; }
+
+        // =========================
+        // Operational / Compliance
+        // =========================
+
+        /// <summary>
         /// KYC and verification documents.
         /// </summary>
         DbSet<VerificationDocument> VerificationDocuments { get; }
 
         /// <summary>
-        /// System-level logged events (audit/notifications).
+        /// System-level logged events (audit, diagnostics).
         /// </summary>
         DbSet<SystemEvent> SystemEvents { get; }
 
@@ -47,10 +71,15 @@ namespace LoanWise.Application.Common.Interfaces
         /// </summary>
         DbSet<EscrowTransaction> EscrowTransactions { get; }
 
-        DbSet<User> Users { get; }
-        DbSet<RefreshToken> RefreshTokens { get; }
+        /// <summary>
+        /// In-app notifications for users.
+        /// </summary>
         DbSet<Notification> Notifications { get; }
-       
+
+        // =========================
+        // Commit
+        // =========================
+
         /// <summary>
         /// Persists changes to the database.
         /// </summary>

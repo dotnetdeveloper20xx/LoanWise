@@ -33,7 +33,7 @@ namespace LoanWise.Domain.Entities
         /// <summary>
         /// Amount due for this installment.
         /// </summary>
-        public Money Amount { get; private set; }
+        public decimal Amount { get; private set; }
 
         /// <summary>
         /// Whether the repayment has been completed.
@@ -58,7 +58,7 @@ namespace LoanWise.Domain.Entities
         /// <param name="loanId">Associated loan ID.</param>
         /// <param name="dueDate">Due date for this installment.</param>
         /// <param name="amount">Repayment amount.</param>
-        public Repayment(Guid id, Guid loanId, DateTime dueDate, Money amount)
+        public Repayment(Guid id, Guid loanId, DateTime dueDate, decimal amount)
         {
             Id = id;
             LoanId = loanId;

@@ -29,16 +29,26 @@ namespace LoanWise.Persistence.Context
             _eventDispatcher = null;
         }
 
+
+        // Core lending
         public DbSet<Loan> Loans => Set<Loan>();
-        public DbSet<Repayment> Repayments => Set<Repayment>();
         public DbSet<Funding> Fundings => Set<Funding>();
+        public DbSet<Repayment> Repayments => Set<Repayment>();
+
+        // User & security
+        public DbSet<User> Users => Set<User>();
+        public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+
+        // Support & operations
         public DbSet<VerificationDocument> VerificationDocuments => Set<VerificationDocument>();
-        public DbSet<SystemEvent> SystemEvents => Set<SystemEvent>();
         public DbSet<CreditProfile> CreditProfiles => Set<CreditProfile>();
+        public DbSet<SystemEvent> SystemEvents => Set<SystemEvent>();
+        public DbSet<Notification> Notifications => Set<Notification>();
+
+        // Financial operations
         public DbSet<EscrowTransaction> EscrowTransactions => Set<EscrowTransaction>();
-        public DbSet<User> Users { get; set; } = default!;
-        public DbSet<RefreshToken> RefreshTokens { get; set; } = default!;
-        public DbSet<Notification> Notifications { get; set; } = default!;
+
+        public DbSet<LenderRepayment> LenderRepayments => Set<LenderRepayment>();
 
         public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {
@@ -162,6 +172,19 @@ namespace LoanWise.Persistence.Context
                        .WithMany() // or .WithMany(u => u.RefreshTokens) if you add a nav property
                        .HasForeignKey(rt => rt.UserId);
             });
+
+            modelBuilder.Entity<LenderRepayment>(b =>
+            {
+                b.HasKey(x => x.Id);
+                b.Property(x => x.Amount).HasColumnType("decimal(18,2)");
+                b.HasIndex(x => new { x.LenderId, x.LoanId });
+                b.HasIndex(x => x.RepaymentId).IsUnique(false);
+
+                b.HasOne<Loan>().WithMany().HasForeignKey(x => x.LoanId);
+                b.HasOne<Repayment>().WithMany().HasForeignKey(x => x.RepaymentId);
+                b.HasOne<User>().WithMany().HasForeignKey(x => x.LenderId);
+            });
+
 
             // Prevent cascading deletes globally unless explicitly configured
             foreach (var entityType in modelBuilder.Model.GetEntityTypes())
