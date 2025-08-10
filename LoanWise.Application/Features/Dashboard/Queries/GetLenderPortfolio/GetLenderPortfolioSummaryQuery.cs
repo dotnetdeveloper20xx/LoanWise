@@ -4,13 +4,8 @@ using StoreBoost.Application.Common.Models;
 
 namespace LoanWise.Application.Features.Dashboard.Queries.GetLenderPortfolio
 {
-    public class GetLenderPortfolioSummaryQuery : IRequest<ApiResponse<LenderPortfolioDto>>
-    {
-        public Guid LenderId { get; }
-
-        public GetLenderPortfolioSummaryQuery(Guid lenderId)
-        {
-            LenderId = lenderId;
-        }
-    }
+    // No LenderId anymore; we read it from IUserContext in the handler
+    public sealed class GetLenderPortfolioSummaryQuery
+        : IRequest<ApiResponse<LenderPortfolioDto>>
+    { }
 }

@@ -32,7 +32,7 @@ namespace LoanWise.Api.Controllers
             if (!Guid.TryParse(userIdClaim, out var lenderId))
                 return BadRequest("Invalid or missing user ID in token.");
 
-            var response = await _mediator.Send(new GetLenderPortfolioSummaryQuery(lenderId));
+            var response = await _mediator.Send(new GetLenderPortfolioSummaryQuery());
             return response.Success ? Ok(response) : BadRequest(response);
         }
     }

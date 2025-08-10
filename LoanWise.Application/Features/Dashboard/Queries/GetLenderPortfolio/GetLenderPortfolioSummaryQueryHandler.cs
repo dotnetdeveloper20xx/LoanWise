@@ -1,40 +1,61 @@
 ﻿using LoanWise.Application.Common.Interfaces;
 using LoanWise.Application.DTOs.Dashboard;
 using MediatR;
+using Microsoft.EntityFrameworkCore;
 using StoreBoost.Application.Common.Models;
 
 namespace LoanWise.Application.Features.Dashboard.Queries.GetLenderPortfolio
 {
-    public class GetLenderPortfolioSummaryQueryHandler : IRequestHandler<GetLenderPortfolioSummaryQuery, ApiResponse<LenderPortfolioDto>>
+    public class GetLenderPortfolioSummaryQueryHandler
+        : IRequestHandler<GetLenderPortfolioSummaryQuery, ApiResponse<LenderPortfolioDto>>
     {
-        private readonly ILoanRepository _loanRepository;
+        private readonly IApplicationDbContext _db;
+        private readonly IUserContext _user;
 
-        public GetLenderPortfolioSummaryQueryHandler(ILoanRepository loanRepository)
+        public GetLenderPortfolioSummaryQueryHandler(IApplicationDbContext db, IUserContext user)
         {
-            _loanRepository = loanRepository;
+            _db = db;
+            _user = user;
         }
 
-        public async Task<ApiResponse<LenderPortfolioDto>> Handle(GetLenderPortfolioSummaryQuery request, CancellationToken cancellationToken)
+        public async Task<ApiResponse<LenderPortfolioDto>> Handle(
+            GetLenderPortfolioSummaryQuery request,
+            CancellationToken cancellationToken)
         {
-            var loans = await _loanRepository.GetAllIncludingFundingsAsync(cancellationToken);
+            if (!_user.UserId.HasValue)
+                return ApiResponse<LenderPortfolioDto>.FailureResult("Unauthorized.");
 
-            var relevantLoans = loans
-                .Where(loan => loan.Fundings.Any(f => f.LenderId == request.LenderId))
-                .ToList();
+            var lenderId = _user.UserId.Value;
 
-            var totalFunded = relevantLoans
-                .SelectMany(l => l.Fundings)
-                .Where(f => f.LenderId == request.LenderId)
-                .Sum(f => f.Amount.Value);
+            // If you expose role in IUserContext, you can enforce it:
+            // if (_user.Role != UserRole.Lender) return ApiResponse<LenderPortfolioDto>.FailureResult("Forbidden.");
 
-            var numberOfLoans = relevantLoans.Count;
+            // Total funded by this lender
+            var totalFunded = await _db.Fundings
+                .Where(f => f.LenderId == lenderId)
+                .SumAsync(f => (decimal?)f.Amount.Value, cancellationToken) ?? 0m;
+
+            // Number of distinct loans this lender has funded
+            var numberOfLoans = await _db.Fundings
+                .Where(f => f.LenderId == lenderId)
+                .Select(f => f.LoanId)
+                .Distinct()
+                .CountAsync(cancellationToken);
+
+            // Total returned to this lender (from proportional repayment slices)
+            var totalReturned = await _db.LenderRepayments
+                .Where(lr => lr.LenderId == lenderId)
+                .SumAsync(lr => (decimal?)lr.Amount, cancellationToken) ?? 0m;
+
+            // Outstanding balance = funded - returned (never negative)
+            var outstanding = Math.Max(0m, totalFunded - totalReturned);
 
             var dto = new LenderPortfolioDto
             {
                 TotalFunded = totalFunded,
                 NumberOfLoansFunded = numberOfLoans,
-                TotalReceived = 0, // to be implemented in future
-                OutstandingBalance = 0 // to be implemented
+                TotalReturned = totalReturned,
+                OutstandingBalance = outstanding
             };
 
             return ApiResponse<LenderPortfolioDto>.SuccessResult(dto);
