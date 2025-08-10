@@ -32,6 +32,8 @@ namespace LoanWise.Domain.Entities
         /// <summary>Creation timestamp (for ordering/cashflow lists).</summary>
         public DateTime CreatedAtUtc { get; private set; } = DateTime.UtcNow;
 
+        public DateTime? OverdueNotifiedAtUtc { get; private set; }
+
         // EF
         private Repayment() { }
 
@@ -70,6 +72,8 @@ namespace LoanWise.Domain.Entities
         /// </summary>
         public bool IsOverdue(DateTime currentDate) => !IsPaid && currentDate.Date > DueDate;
 
+        public void MarkOverdueNotified(DateTime whenUtc) => OverdueNotifiedAtUtc = whenUtc;
+
         /// <summary>
         /// Publishes a due reminder event (explicit borrower id avoids requiring Loan navigation).
         /// </summary>
@@ -81,9 +85,19 @@ namespace LoanWise.Domain.Entities
         /// <summary>
         /// Publishes an overdue reminder event (explicit borrower id avoids requiring Loan navigation).
         /// </summary>
-        public void MarkOverdue(Guid borrowerId)
+        public void MarkOverdue()
         {
-            AddDomainEvent(new RepaymentOverdueEvent(LoanId, borrowerId, Id, DueDate, RepaymentAmount));
+            // (optional) guard if already paid or already notified
+            // if (IsPaid) return;
+            // if (OverdueNotifiedAtUtc != null) return;
+            // OverdueNotifiedAtUtc = DateTime.UtcNow;
+
+            AddDomainEvent(new RepaymentOverdueEvent(
+                LoanId,
+                Id,
+                DueDate
+            ));
         }
+
     }
 }

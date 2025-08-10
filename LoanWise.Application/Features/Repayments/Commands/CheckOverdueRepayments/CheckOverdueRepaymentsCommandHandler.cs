@@ -1,34 +1,58 @@
-﻿using LoanWise.Application.Common.Interfaces;
+﻿// CheckOverdueRepaymentsCommandHandler.cs
+using LoanWise.Application.Common.Interfaces;
+using LoanWise.Application.Features.Repayments.Commands.CheckOverdueRepayments;
+using LoanWise.Domain.Events;
 using MediatR;
-using Microsoft.Extensions.Logging;
-using StoreBoost.Application.Common.Models;
+using StoreBoost.Application.Common.Models; // ApiResponse<T>
 
-namespace LoanWise.Application.Features.Repayments.Commands.CheckOverdueRepayments
+namespace LoanWise.Application.Features.Repayments.Commands.CheckOverdue
 {
-    public class CheckOverdueRepaymentsCommandHandler : IRequestHandler<CheckOverdueRepaymentsCommand, ApiResponse<string>>
+    public sealed class CheckOverdueRepaymentsCommandHandler
+        : IRequestHandler<CheckOverdueRepaymentsCommand, ApiResponse<int>>
     {
-        private readonly ILoanRepository _loanRepository;
-        private readonly ILogger<CheckOverdueRepaymentsCommandHandler> _logger;
+        private readonly ILoanRepository _loans;
+        private readonly IMediator _mediator;
+        private readonly IApplicationDbContext _db;
 
-        public CheckOverdueRepaymentsCommandHandler(ILoanRepository loanRepository, ILogger<CheckOverdueRepaymentsCommandHandler> logger)
+        public CheckOverdueRepaymentsCommandHandler(
+            ILoanRepository loans,
+            IMediator mediator,
+            IApplicationDbContext db)
         {
-            _loanRepository = loanRepository;
-            _logger = logger;
+            _loans = loans;
+            _mediator = mediator;
+            _db = db;
         }
 
-        public async Task<ApiResponse<string>> Handle(CheckOverdueRepaymentsCommand request, CancellationToken cancellationToken)
+        public async Task<ApiResponse<int>> Handle(CheckOverdueRepaymentsCommand request, CancellationToken ct)
         {
-            var loans = await _loanRepository.GetLoansWithRepaymentsAsync(cancellationToken);
+            var nowDate = DateTime.UtcNow.Date;
+            var loansWithRepayments = await _loans.GetLoansWithRepaymentsAsync(ct);
 
-            foreach (var loan in loans)
+            var overdueItems = loansWithRepayments
+                .SelectMany(l => l.Repayments.Select(r => (loan: l, r)))
+                .Where(x =>
+                    !x.r.IsPaid &&
+                    x.r.DueDate.Date < nowDate &&
+                    x.r.OverdueNotifiedAtUtc == null) // remove this check if you didn't add the flag
+                .ToList();
+
+            foreach (var item in overdueItems)
             {
-                loan.MarkOverdueRepayments(DateTime.UtcNow);
-                await _loanRepository.UpdateAsync(loan, cancellationToken);
+                // raise event
+                await _mediator.Publish(new RepaymentOverdueEvent(
+                    item.loan.Id,
+                    item.r.Id,
+                    item.r.DueDate
+                ), ct);
+
+                // mark to avoid duplicate notifications next run
+                item.r.MarkOverdueNotified(DateTime.UtcNow);
+                await _loans.UpdateAsync(item.loan, ct); // persist change per loan
             }
 
-            _logger.LogInformation("Overdue repayments check complete for {Count} loans", loans.Count());
-
-            return ApiResponse<string>.SuccessResult("Overdue repayments checked and updated.");
+            await _db.SaveChangesAsync(ct);
+            return ApiResponse<int>.SuccessResult(overdueItems.Count, $"Overdue checked. Raised {overdueItems.Count} event(s).");
         }
     }
 }
