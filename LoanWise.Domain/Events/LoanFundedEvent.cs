@@ -1,25 +1,20 @@
-﻿using LoanWise.Domain.Common;
-using MediatR;
+﻿// LoanFundedEvent.cs
 using System;
+using LoanWise.Domain.Common;
+using MediatR;
 
 namespace LoanWise.Domain.Events
 {
     /// <summary>
-    /// Raised when a loan becomes fully funded.
+    /// Raised when a funding contribution is recorded for a loan.
+    /// Includes a flag indicating if the loan has become fully funded.
     /// </summary>
-    public class LoanFundedEvent : IDomainEvent, INotification
-    {
-        public Guid LoanId { get; }
-        public Guid BorrowerId { get; }
-        public decimal AmountFunded { get; }
-        public DateTime OccurredOnUtc { get; }
-
-        public LoanFundedEvent(Guid loanId, Guid borrowerId, decimal amountFunded)
-        {
-            LoanId = loanId;
-            BorrowerId = borrowerId;
-            AmountFunded = amountFunded;
-            OccurredOnUtc = DateTime.UtcNow;
-        }
-    }
+    public sealed record LoanFundedEvent(
+        Guid LoanId,
+        Guid FundingId,
+        Guid LenderId,
+        decimal Amount,
+        bool IsFullyFunded
+    ) : IDomainEvent, INotification;
+    
 }

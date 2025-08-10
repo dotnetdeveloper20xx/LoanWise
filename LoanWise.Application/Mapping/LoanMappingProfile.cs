@@ -44,7 +44,7 @@ namespace LoanWise.Application.Mapping
 
 
             CreateMap<Repayment, RepaymentDto>()
-           .ForMember(dest => dest.Amount, opt => opt.MapFrom(src => src.Amount));
+           .ForMember(dest => dest.Amount, opt => opt.MapFrom(src => src.RepaymentAmount));
 
         }
     }

@@ -1,13 +1,15 @@
 ﻿using LoanWise.Application.Common.Interfaces;
 using LoanWise.Domain.Entities;
 using LoanWise.Infrastructure.Common;
+using LoanWise.Infrastructure.Email;
 using LoanWise.Infrastructure.Identity;
+using LoanWise.Infrastructure.Notifications;
 using LoanWise.Infrastructure.Repositories;
 using LoanWise.Infrastructure.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-
+using SendGrid;
 
 namespace LoanWise.Infrastructure.DependencyInjection;
 
@@ -15,10 +17,8 @@ public static class AddInfrastructureServices
 {
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration config)
     {
-
         services.AddScoped<ILoanRepository, LoanRepository>();
         services.AddScoped<IFundingRepository, FundingRepository>();
-
         services.AddScoped<IUserRepository, UserRepository>();
 
         services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
@@ -28,10 +28,19 @@ public static class AddInfrastructureServices
         services.AddHttpContextAccessor();
         services.AddScoped<IUserContext, UserContext>();
 
-        services.AddScoped<IEmailService, SendGridEmailService>();
-
         services.AddScoped<INotificationRepository, NotificationRepository>();
         services.AddScoped<IDomainEventDispatcher, DomainEventDispatcher>();
+
+        // Email (SendGrid)
+        services.Configure<SendGridOptions>(config.GetSection("Email"));
+        services.AddSingleton<ISendGridClient>(sp =>
+        {
+            var opts = sp.GetRequiredService<
+                Microsoft.Extensions.Options.IOptions<SendGridOptions>>().Value;
+            return new SendGridClient(opts.ApiKey);
+        });
+        services.AddScoped<EmailNotificationService>();
+
         return services;
     }
 }

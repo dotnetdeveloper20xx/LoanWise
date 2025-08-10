@@ -1,12 +1,18 @@
-﻿using LoanWise.Domain.Common;
+﻿// LoanDisbursedEvent.cs
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using LoanWise.Domain.Common;
+using MediatR;
 
 namespace LoanWise.Domain.Events
 {
-    public sealed record LoanDisbursedEvent(Guid LoanId, Guid BorrowerId) : IDomainEvent;
-
+    /// <summary>
+    /// Raised when a loan is disbursed and funds are released to the borrower.
+    /// </summary>
+    public sealed record LoanDisbursedEvent(
+        Guid LoanId,
+        DateTime DisbursedOn
+    ) : IDomainEvent, INotification
+    {
+        public DateTime OccurredOnUtc { get; init; } = DateTime.UtcNow;
+    }
 }

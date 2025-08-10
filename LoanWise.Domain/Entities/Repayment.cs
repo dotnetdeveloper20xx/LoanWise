@@ -1,7 +1,5 @@
 ﻿using LoanWise.Domain.Common;
 using LoanWise.Domain.Events;
-using LoanWise.Domain.ValueObjects;
-using System;
 
 namespace LoanWise.Domain.Entities
 {
@@ -10,67 +8,52 @@ namespace LoanWise.Domain.Entities
     /// </summary>
     public class Repayment : Entity
     {
-        /// <summary>
-        /// Unique identifier for the repayment entry.
-        /// </summary>
+        /// <summary>Unique identifier for the repayment entry.</summary>
         public Guid Id { get; private set; }
 
-        /// <summary>
-        /// Foreign key reference to the parent loan.
-        /// </summary>
+        /// <summary>Foreign key reference to the parent loan.</summary>
         public Guid LoanId { get; private set; }
 
-        /// <summary>
-        /// Navigation property to the related loan.
-        /// </summary>
-        public Loan Loan { get; private set; }
+        /// <summary>Navigation property to the related loan (optional unless explicitly included).</summary>
+        public Loan? Loan { get; private set; }
 
-        /// <summary>
-        /// Scheduled due date for the repayment.
-        /// </summary>
+        /// <summary>Scheduled due date for the repayment.</summary>
         public DateTime DueDate { get; private set; }
 
-        /// <summary>
-        /// Amount due for this installment.
-        /// </summary>
-        public decimal Amount { get; private set; }
+        /// <summary>Amount due for this installment (decimal, same currency as the loan).</summary>
+        public decimal RepaymentAmount { get; private set; }
 
-        /// <summary>
-        /// Whether the repayment has been completed.
-        /// </summary>
+        /// <summary>Whether the repayment has been completed.</summary>
         public bool IsPaid { get; private set; }
 
-        /// <summary>
-        /// Actual payment date if paid.
-        /// </summary>
+        /// <summary>Actual payment date if paid.</summary>
         public DateTime? PaidOn { get; private set; }
-        public decimal RepaymentAmount { get; set; }
 
-        /// <summary>
-        /// Required by EF Core.
-        /// </summary>
+        /// <summary>Creation timestamp (for ordering/cashflow lists).</summary>
+        public DateTime CreatedAtUtc { get; private set; } = DateTime.UtcNow;
+
+        // EF
         private Repayment() { }
 
         /// <summary>
         /// Creates a new scheduled repayment.
         /// </summary>
-        /// <param name="id">Unique identifier.</param>
-        /// <param name="loanId">Associated loan ID.</param>
-        /// <param name="dueDate">Due date for this installment.</param>
-        /// <param name="amount">Repayment amount.</param>
         public Repayment(Guid id, Guid loanId, DateTime dueDate, decimal amount)
         {
+            if (amount <= 0m) throw new ArgumentOutOfRangeException(nameof(amount), "Repayment amount must be > 0.");
+
             Id = id;
             LoanId = loanId;
-            DueDate = dueDate;
-            Amount = amount;
+            DueDate = dueDate.Date;
+            RepaymentAmount = amount;
             IsPaid = false;
         }
 
         /// <summary>
-        /// Marks the repayment as paid.
+        /// Marks the repayment as paid and raises RepaymentPaidEvent.
         /// </summary>
-        /// <param name="paymentDate">Date the payment was made.</param>
+        /// <param name="paymentDate">Date the payment was made (UTC recommended).</param>
+        /// <param name="borrowerId">Borrower user id (pass explicitly; do not rely on Loan nav).</param>
         public void MarkAsPaid(DateTime paymentDate, Guid borrowerId)
         {
             if (IsPaid)
@@ -79,26 +62,28 @@ namespace LoanWise.Domain.Entities
             IsPaid = true;
             PaidOn = paymentDate;
 
-            AddDomainEvent(new RepaymentPaidEvent(LoanId, borrowerId, Id, RepaymentAmount));
-
+            AddDomainEvent(new RepaymentPaidEvent(LoanId, Id, paymentDate));
         }
 
         /// <summary>
         /// Indicates if this repayment is overdue and unpaid.
         /// </summary>
-        public bool IsOverdue(DateTime currentDate)
+        public bool IsOverdue(DateTime currentDate) => !IsPaid && currentDate.Date > DueDate;
+
+        /// <summary>
+        /// Publishes a due reminder event (explicit borrower id avoids requiring Loan navigation).
+        /// </summary>
+        public void MarkDue(Guid borrowerId)
         {
-            return !IsPaid && currentDate > DueDate;
+            AddDomainEvent(new RepaymentDueEvent(LoanId, borrowerId, Id, DueDate, RepaymentAmount));
         }
 
-        public void MarkDue()
+        /// <summary>
+        /// Publishes an overdue reminder event (explicit borrower id avoids requiring Loan navigation).
+        /// </summary>
+        public void MarkOverdue(Guid borrowerId)
         {
-            AddDomainEvent(new RepaymentDueEvent(LoanId, Loan.BorrowerId, Id, DueDate, RepaymentAmount));
-        }
-
-        public void MarkOverdue()
-        {
-            AddDomainEvent(new RepaymentOverdueEvent(LoanId, Loan.BorrowerId, Id, DueDate, RepaymentAmount));
+            AddDomainEvent(new RepaymentOverdueEvent(LoanId, borrowerId, Id, DueDate, RepaymentAmount));
         }
     }
 }

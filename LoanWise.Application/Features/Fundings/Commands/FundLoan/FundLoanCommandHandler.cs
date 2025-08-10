@@ -1,6 +1,7 @@
 ﻿using LoanWise.Application.Common.Interfaces;
 using LoanWise.Domain.Entities;
 using LoanWise.Domain.ValueObjects;
+using LoanWise.Domain.Events;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using StoreBoost.Application.Common.Models;
@@ -16,17 +17,20 @@ namespace LoanWise.Application.Features.Fundings.Commands.FundLoan
         private readonly IFundingRepository _fundingRepository;
         private readonly ILogger<FundLoanCommandHandler> _logger;
         private readonly IUserContext _userContext;
+        private readonly IMediator _mediator;
 
         public FundLoanCommandHandler(
             ILoanRepository loanRepository,
             IFundingRepository fundingRepository,
             ILogger<FundLoanCommandHandler> logger,
-            IUserContext userContext)
+            IUserContext userContext,
+            IMediator mediator)
         {
             _loanRepository = loanRepository;
             _fundingRepository = fundingRepository;
             _logger = logger;
             _userContext = userContext;
+            _mediator = mediator;
         }
 
         public async Task<ApiResponse<Guid>> Handle(FundLoanCommand request, CancellationToken cancellationToken)
@@ -36,16 +40,13 @@ namespace LoanWise.Application.Features.Fundings.Commands.FundLoan
 
             var lenderId = _userContext.UserId.Value;
 
-
             var loan = await _loanRepository.GetByIdAsync(request.LoanId, cancellationToken);
-
             if (loan == null)
             {
                 _logger.LogWarning("Loan {LoanId} not found", request.LoanId);
                 return ApiResponse<Guid>.FailureResult("Loan not found.");
             }
 
-            // Calculate total already funded
             var currentFunded = loan.Fundings.Sum(f => f.Amount.Value);
             var remaining = loan.Amount.Value - currentFunded;
 
@@ -64,7 +65,7 @@ namespace LoanWise.Application.Features.Fundings.Commands.FundLoan
             );
 
             loan.AddFunding(funding);
-            loan.UpdateFundingStatus();
+            loan.UpdateFundingStatus(funding); // may flip to Funded
 
             await _fundingRepository.AddAsync(funding, cancellationToken);
             await _loanRepository.UpdateAsync(loan, cancellationToken);
@@ -73,6 +74,16 @@ namespace LoanWise.Application.Features.Fundings.Commands.FundLoan
                 "Loan {LoanId} funded by lender {LenderId} with {Amount}. Loan status: {Status}",
                 request.LoanId, lenderId, request.Amount, loan.Status
             );
+
+            // Publish domain event (after persistence)
+            var isFullyFunded = loan.IsFullyFunded(); // or loan.Status == LoanStatus.Funded
+            await _mediator.Publish(new LoanFundedEvent(
+                loan.Id,
+                funding.Id,
+                lenderId,
+                request.Amount,
+                isFullyFunded
+            ), cancellationToken);
 
             return ApiResponse<Guid>.SuccessResult(funding.Id, "Funding recorded successfully.");
         }

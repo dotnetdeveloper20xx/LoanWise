@@ -44,7 +44,7 @@ namespace LoanWise.Application.Features.Dashboard.Queries.GetBorrowerDashboard
                 .ToList();
 
             var nextRepayment = allUnpaidRepayments.FirstOrDefault();
-            var totalOutstanding = allUnpaidRepayments.Sum(r => r.Amount);
+            var totalOutstanding = allUnpaidRepayments.Sum(r => r.RepaymentAmount);
 
             var dto = new BorrowerDashboardDto
             {
@@ -54,7 +54,7 @@ namespace LoanWise.Application.Features.Dashboard.Queries.GetBorrowerDashboard
                 TotalOutstanding = totalOutstanding,
                 UpcomingRepaymentId = nextRepayment?.Id,
                 NextRepaymentDueDate = nextRepayment?.DueDate,
-                NextRepaymentAmount = nextRepayment?.Amount
+                NextRepaymentAmount = nextRepayment?.RepaymentAmount
             };
 
             return ApiResponse<BorrowerDashboardDto>.SuccessResult(dto);

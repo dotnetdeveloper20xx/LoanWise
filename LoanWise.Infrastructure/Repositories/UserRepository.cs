@@ -31,5 +31,11 @@ namespace LoanWise.Infrastructure.Repositories
             return await _context.Users.FirstOrDefaultAsync(u => u.Id == id);
         }
 
+        public Task<string?> GetEmailByIdAsync(Guid userId, CancellationToken ct = default) =>
+            _context.Users
+               .Where(u => u.Id == userId)
+               .Select(u => u.Email)
+               .FirstOrDefaultAsync(ct);
+
     }
 }

@@ -7,6 +7,6 @@ namespace LoanWise.Application.Common.Interfaces
         Task<User?> GetByEmailAsync(string email);
         Task AddAsync(User user, CancellationToken cancellationToken);
         Task<User?> GetByIdAsync(Guid id);
-
+        Task<string?> GetEmailByIdAsync(Guid userId, CancellationToken cancellationToken);
     }
 }

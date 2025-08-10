@@ -1,5 +1,6 @@
 ﻿using LoanWise.Application.Common.Interfaces;
 using LoanWise.Domain.Entities;
+using LoanWise.Domain.Events;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using StoreBoost.Application.Common.Models;
@@ -14,15 +15,18 @@ namespace LoanWise.Application.Features.Repayments.Commands.MakeRepayment
         private readonly ILoanRepository _loanRepository;
         private readonly IApplicationDbContext _db;
         private readonly ILogger<MakeRepaymentCommandHandler> _logger;
+        private readonly IMediator _mediator;
 
         public MakeRepaymentCommandHandler(
             ILoanRepository loanRepository,
             IApplicationDbContext db,
-            ILogger<MakeRepaymentCommandHandler> logger)
+            ILogger<MakeRepaymentCommandHandler> logger,
+            IMediator mediator)
         {
             _loanRepository = loanRepository;
             _db = db;
             _logger = logger;
+            _mediator = mediator;
         }
 
         public async Task<ApiResponse<Guid>> Handle(MakeRepaymentCommand request, CancellationToken cancellationToken)
@@ -45,9 +49,10 @@ namespace LoanWise.Application.Features.Repayments.Commands.MakeRepayment
             }
 
             // Mark repayment as paid
-            repayment.MarkAsPaid(DateTime.UtcNow, loan.BorrowerId);
+            var paidOn = DateTime.UtcNow;
+            repayment.MarkAsPaid(paidOn, loan.BorrowerId);
 
-            // ---- NEW: create lender repayment allocations ----
+            // ---- Create lender repayment allocations ----
             var totalFunded = loan.Fundings.Sum(f => f.Amount.Value);
             if (totalFunded > 0)
             {
@@ -77,6 +82,13 @@ namespace LoanWise.Application.Features.Repayments.Commands.MakeRepayment
             await _db.SaveChangesAsync(cancellationToken);
 
             _logger.LogInformation("Repayment {RepaymentId} marked as paid", repayment.Id);
+
+            // Publish domain event
+            await _mediator.Publish(new RepaymentPaidEvent(
+                loan.Id,
+                repayment.Id,
+                paidOn
+            ), cancellationToken);
 
             return ApiResponse<Guid>.SuccessResult(repayment.Id, "Repayment successful.");
         }

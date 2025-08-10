@@ -1,4 +1,5 @@
 ﻿using LoanWise.Application.Common.Interfaces;
+using LoanWise.Domain.Events;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using StoreBoost.Application.Common.Models;
@@ -12,13 +13,16 @@ namespace LoanWise.Application.Features.Loans.Commands.DisburseLoan
     {
         private readonly ILoanRepository _loanRepository;
         private readonly ILogger<DisburseLoanCommandHandler> _logger;
+        private readonly IMediator _mediator;
 
         public DisburseLoanCommandHandler(
             ILoanRepository loanRepository,
-            ILogger<DisburseLoanCommandHandler> logger)
+            ILogger<DisburseLoanCommandHandler> logger,
+            IMediator mediator)
         {
             _loanRepository = loanRepository;
             _logger = logger;
+            _mediator = mediator;
         }
 
         public async Task<ApiResponse<Guid>> Handle(DisburseLoanCommand request, CancellationToken cancellationToken)
@@ -39,6 +43,13 @@ namespace LoanWise.Application.Features.Loans.Commands.DisburseLoan
                 await _loanRepository.UpdateAsync(loan, cancellationToken);
 
                 _logger.LogInformation("Loan {LoanId} disbursed and repayment schedule generated.", loan.Id);
+
+                // Publish domain event
+                await _mediator.Publish(new LoanDisbursedEvent(
+                    loan.Id,
+                    DateTime.UtcNow
+                ), cancellationToken);
+
                 return ApiResponse<Guid>.SuccessResult(loan.Id, "Loan disbursed successfully with repayment schedule.");
             }
             catch (InvalidOperationException ex)

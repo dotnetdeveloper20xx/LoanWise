@@ -1,7 +1,19 @@
-﻿using LoanWise.Domain.Common;
+﻿// RepaymentPaidEvent.cs
+using System;
+using LoanWise.Domain.Common;
+using MediatR;
 
 namespace LoanWise.Domain.Events
 {
-    public sealed record RepaymentPaidEvent(Guid LoanId, Guid BorrowerId, Guid RepaymentId, decimal Amount) : IDomainEvent;
-
+    /// <summary>
+    /// Raised when a specific repayment is marked as paid.
+    /// </summary>
+    public sealed record RepaymentPaidEvent(
+        Guid LoanId,
+        Guid RepaymentId,
+        DateTime PaidOn
+    ) : IDomainEvent, INotification
+    {
+        public DateTime OccurredOnUtc { get; init; } = DateTime.UtcNow;
+    }
 }
