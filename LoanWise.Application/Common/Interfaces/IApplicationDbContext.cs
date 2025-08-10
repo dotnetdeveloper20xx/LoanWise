@@ -76,6 +76,8 @@ namespace LoanWise.Application.Common.Interfaces
         /// </summary>
         DbSet<Notification> Notifications { get; }
 
+        DbSet<BorrowerRiskSnapshot> BorrowerRiskSnapshots { get; }        
+
         // =========================
         // Commit
         // =========================

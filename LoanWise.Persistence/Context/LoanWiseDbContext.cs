@@ -50,6 +50,7 @@ namespace LoanWise.Persistence.Context
 
         public DbSet<LenderRepayment> LenderRepayments => Set<LenderRepayment>();
 
+        public DbSet<BorrowerRiskSnapshot> BorrowerRiskSnapshots => Set<BorrowerRiskSnapshot>();
         public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {
             // Collect domain events BEFORE saving
@@ -185,6 +186,23 @@ namespace LoanWise.Persistence.Context
                 b.HasOne<User>().WithMany().HasForeignKey(x => x.LenderId);
             });
 
+
+            modelBuilder.Entity<BorrowerRiskSnapshot>(b =>
+            {
+                b.HasKey(x => x.BorrowerId);
+                b.Property(x => x.RiskTier).HasMaxLength(32);
+                b.Property(x => x.KycStatus).HasMaxLength(32);
+                b.Property(x => x.FlagsJson).HasMaxLength(2000);
+                b.HasIndex(x => x.KycStatus);
+                b.HasIndex(x => x.LastVerifiedAtUtc);
+                b.HasIndex(x => x.LastScoreAtUtc);
+            });
+
+            modelBuilder.Entity<BorrowerRiskSnapshot>(b =>
+            {
+                b.HasIndex(x => x.KycStatus);
+                b.HasIndex(x => x.LastVerifiedAtUtc);
+            });
 
             // Prevent cascading deletes globally unless explicitly configured
             foreach (var entityType in modelBuilder.Model.GetEntityTypes())

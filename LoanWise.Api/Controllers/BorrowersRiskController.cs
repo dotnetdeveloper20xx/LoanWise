@@ -1,5 +1,7 @@
 ﻿// LoanWise.Api/Controllers/BorrowersRiskController.cs
+using LoanWise.Application.DTOs.Admin;
 using LoanWise.Application.DTOs.Borrowers;
+using LoanWise.Application.Features.Admin.Borrowers.Queries.ListByKycStatus;
 using LoanWise.Application.Features.Borrowers.Commands.VerifyKyc;
 using LoanWise.Application.Features.Borrowers.Queries.GetRiskSummary;
 using MediatR;
@@ -30,4 +32,16 @@ public sealed class BorrowersRiskController : ControllerBase
     [Authorize(Roles = "Admin")]
     public async Task<ActionResult<ApiResponse<string>>> VerifyKyc(Guid borrowerId, CancellationToken ct)
         => await _mediator.Send(new VerifyKycCommand(borrowerId), ct);
+
+    // GET /api/admin/borrowers/by-kyc?status=Verified&page=1&pageSize=25
+    [HttpGet("by-kyc")]
+    public async Task<ActionResult<ApiResponse<BorrowerKycListResult>>> ListByKyc(
+        [FromQuery] string status,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 25,
+        CancellationToken ct = default)
+    {
+        var res = await _mediator.Send(new ListBorrowersByKycStatusQuery(status, page, pageSize), ct);
+        return Ok(res);
+    }
 }

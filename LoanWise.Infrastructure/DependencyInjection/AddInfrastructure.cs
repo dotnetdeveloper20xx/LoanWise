@@ -8,6 +8,7 @@ using LoanWise.Infrastructure.Kyc;
 using LoanWise.Infrastructure.Notifications;
 using LoanWise.Infrastructure.Repositories;
 using LoanWise.Infrastructure.Services;
+using LoanWise.Persistence.Repositories;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -48,6 +49,9 @@ public static class AddInfrastructureServices
         services.Configure<KycOptions>(config.GetSection("Kyc"));
         services.AddScoped<IKycService, MockKycService>();
         services.AddScoped<ICreditScoringService, MockCreditScoringService>();
+
+        services.AddScoped<IBorrowerRiskRepository, BorrowerRiskRepository>();
+
 
         return services;
     }
