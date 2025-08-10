@@ -1,8 +1,10 @@
 ﻿using LoanWise.Application.Common.Interfaces;
 using LoanWise.Domain.Entities;
 using LoanWise.Infrastructure.Common;
+using LoanWise.Infrastructure.Credit;
 using LoanWise.Infrastructure.Email;
 using LoanWise.Infrastructure.Identity;
+using LoanWise.Infrastructure.Kyc;
 using LoanWise.Infrastructure.Notifications;
 using LoanWise.Infrastructure.Repositories;
 using LoanWise.Infrastructure.Services;
@@ -42,6 +44,10 @@ public static class AddInfrastructureServices
         services.AddScoped<EmailNotificationService>();
 
         services.AddScoped<ILenderReportingRepository, LenderReportingRepository>();
+
+        services.Configure<KycOptions>(config.GetSection("Kyc"));
+        services.AddScoped<IKycService, MockKycService>();
+        services.AddScoped<ICreditScoringService, MockCreditScoringService>();
 
         return services;
     }
