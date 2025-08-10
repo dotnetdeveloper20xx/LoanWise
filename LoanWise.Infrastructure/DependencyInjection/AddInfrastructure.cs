@@ -41,6 +41,8 @@ public static class AddInfrastructureServices
         });
         services.AddScoped<EmailNotificationService>();
 
+        services.AddScoped<ILenderReportingRepository, LenderReportingRepository>();
+
         return services;
     }
 }
