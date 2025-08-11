@@ -56,7 +56,7 @@ public static class AddInfrastructureServices
         services.AddSingleton<IRepaymentPlanPdfService, RepaymentPlanPdfService>();      
         services.AddSingleton<ITransactionExportService, TransactionExportService>();
 
-
+        services.AddSingleton<ILoanAgreementPdfService, LoanAgreementPdfService>();
         return services;
     }
 }
