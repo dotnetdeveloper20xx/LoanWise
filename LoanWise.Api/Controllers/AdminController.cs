@@ -1,4 +1,15 @@
-﻿using LoanWise.Application.DTOs.Users;
+﻿// --------------------------------------------------------------------------------------
+// LoanWise.Api - AdminController
+// Author: Faz Ahmed
+// Purpose: Administrative endpoints for loan approvals, user management, and repayments.
+// Notes:
+//  - Follows Clean Architecture + CQRS with MediatR.
+//  - Returns a unified ApiResponse<T> envelope to keep clients consistent.
+//  - Uses explicit request contracts for clarity and Swagger documentation.
+//  - Consider moving the nested request DTOs into an Api.Contracts/Admin folder.
+// --------------------------------------------------------------------------------------
+
+using LoanWise.Application.DTOs.Users;
 using LoanWise.Application.Features.Admin.Commands.ApproveLoan;
 using LoanWise.Application.Features.Admin.Commands.RejectLoan;
 using LoanWise.Application.Features.Admin.Commands.UpdateUserStatus;
@@ -7,76 +18,147 @@ using LoanWise.Application.Features.Repayments.Commands.CheckOverdueRepayments;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using StoreBoost.Application.Common.Models;
+using System.ComponentModel.DataAnnotations;
 
 namespace LoanWise.Api.Controllers
 {
-    [Authorize(Roles = "Admin")] // Only admins can access this controller
+    [Authorize(Roles = "Admin")] // Admin-only surface area
     [ApiController]
     [Route("api/admin")]
-    public class AdminController : ControllerBase
+    [Produces("application/json")]
+    [ApiExplorerSettings(GroupName = "Admin")]
+    public sealed class AdminController : ControllerBase
     {
         private readonly IMediator _mediator;
+        private readonly ILogger<AdminController> _logger;
 
-        public AdminController(IMediator mediator)
+        public AdminController(IMediator mediator, ILogger<AdminController> logger)
         {
             _mediator = mediator;
+            _logger = logger;
         }
 
+        // -------------------------------
+        // Requests (local DTO contracts)
+        // -------------------------------
+
         /// <summary>
-        /// Approves a pending loan (Admin only).
+        /// Request body for rejecting a loan.
         /// </summary>
+        public sealed record RejectLoanRequest(
+            [property: StringLength(512, ErrorMessage = "Reason must be 512 characters or fewer.")]
+            string? Reason
+        );
+
+        /// <summary>
+        /// Request body for updating the active status of a user account.
+        /// </summary>
+        public sealed record UpdateUserStatusRequest(
+            [property: Required] bool IsActive
+        );
+
+        // -------------------------------
+        // Loans: Approve / Reject
+        // -------------------------------
+
+        /// <summary>
+        /// Approves a pending loan.
+        /// </summary>
+        /// <param name="loanId">Loan identifier.</param>
+        /// <param name="ct">Cancellation token.</param>
+        /// <returns>ApiResponse with approved loan ID.</returns>
         [HttpPost("loans/{loanId:guid}/approve")]
         [ProducesResponseType(typeof(ApiResponse<Guid>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ApiResponse<Guid>), StatusCodes.Status400BadRequest)]
-        public async Task<IActionResult> ApproveLoan(Guid loanId, CancellationToken ct)
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        public async Task<IActionResult> ApproveLoan(Guid loanId, CancellationToken ct = default)
         {
-            ApiResponse<Guid> res = await _mediator.Send(new ApproveLoanCommand(loanId), ct);
+            _logger.LogInformation("Admin (by {Admin}) approving loan {LoanId}", User?.Identity?.Name, loanId);
+
+            var res = await _mediator.Send(new ApproveLoanCommand(loanId), ct);
             return res.Success ? Ok(res) : BadRequest(res);
         }
 
         /// <summary>
-        /// Rejects a pending loan with an optional reason (Admin only).
+        /// Rejects a pending loan with an optional reason.
         /// </summary>
+        /// <param name="loanId">Loan identifier.</param>
+        /// <param name="body">Optional reason for rejection.</param>
+        /// <param name="ct">Cancellation token.</param>
+        /// <returns>ApiResponse with rejected loan ID.</returns>
         [HttpPost("loans/{loanId:guid}/reject")]
+        [Consumes("application/json")]
         [ProducesResponseType(typeof(ApiResponse<Guid>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ApiResponse<Guid>), StatusCodes.Status400BadRequest)]
-        public async Task<IActionResult> RejectLoan(Guid loanId, [FromBody] string Reason, CancellationToken ct)
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        public async Task<IActionResult> RejectLoan(Guid loanId, [FromBody] RejectLoanRequest body, CancellationToken ct = default)
         {
-            ApiResponse<Guid> res = await _mediator.Send(new RejectLoanCommand(loanId, Reason), ct);
+            var reason = body?.Reason?.Trim();
+            _logger.LogInformation("Admin (by {Admin}) rejecting loan {LoanId}. Reason provided: {HasReason}", User?.Identity?.Name, loanId, !string.IsNullOrWhiteSpace(reason));
+
+            var res = await _mediator.Send(new RejectLoanCommand(loanId, reason), ct);
             return res.Success ? Ok(res) : BadRequest(res);
         }
 
+        // -------------------------------
+        // Repayments: Overdue Check
+        // -------------------------------
 
         /// <summary>
-        /// Triggers overdue check for all repayments in all loans. Admin-only.
+        /// Triggers overdue checks for all repayments across all loans.
         /// </summary>
         [HttpPost("repayments/check-overdue")]
-        public async Task<IActionResult> CheckOverdueRepayments()
+        [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        public async Task<IActionResult> CheckOverdueRepayments(CancellationToken ct = default)
         {
-            var response = await _mediator.Send(new CheckOverdueRepaymentsCommand());
+            _logger.LogInformation("Admin overdue repayment check initiated by {Admin}", User?.Identity?.Name);
+
+            var response = await _mediator.Send(new CheckOverdueRepaymentsCommand(), ct);
             return response.Success ? Ok(response) : BadRequest(response);
         }
 
+        // -------------------------------
+        // Users: Query / Status Update
+        // -------------------------------
+
         /// <summary>
-        /// Returns a paginated list of all users (Admin only)
+        /// Returns a paginated list of users.
         /// </summary>
         [HttpGet("users")]
         [ProducesResponseType(typeof(ApiResponse<PaginatedResult<UserListDto>>), StatusCodes.Status200OK)]
-        public async Task<IActionResult> GetUsers([FromQuery] GetUsersQuery query)
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        public async Task<IActionResult> GetUsers([FromQuery] GetUsersQuery query, CancellationToken ct = default)
         {
-            var result = await _mediator.Send(query);
-            return Ok(result); // Always wrapped in ApiResponse<T>
+            _logger.LogDebug("Admin fetching users with query: {@Query}", query);
+            var result = await _mediator.Send(query, ct);
+            return Ok(result); // Already wrapped in ApiResponse<T>
         }
 
-        [HttpPut("users/{id}/status")]
-        public async Task<IActionResult> UpdateUserStatus(Guid id, [FromBody] bool isActive)
+        /// <summary>
+        /// Updates the active status of a user account.
+        /// </summary>
+        /// <param name="id">User identifier.</param>
+        /// <param name="body">Target active flag.</param>
+        [HttpPut("users/{id:guid}/status")]
+        [Consumes("application/json")]
+        [ProducesResponseType(typeof(ApiResponse<bool>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse<bool>), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        public async Task<IActionResult> UpdateUserStatus(Guid id, [FromBody] UpdateUserStatusRequest body, CancellationToken ct = default)
         {
-            var result = await _mediator.Send(new UpdateUserStatusCommand(id, isActive));
-            return Ok(result); // Always wrapped in ApiResponse<bool>
+            _logger.LogInformation("Admin updating user {UserId} IsActive={IsActive}", id, body.IsActive);
+
+            var result = await _mediator.Send(new UpdateUserStatusCommand(id, body.IsActive), ct);
+            return result.Success ? Ok(result) : BadRequest(result);
         }
-
-
-
     }
 }
