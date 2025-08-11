@@ -1,6 +1,89 @@
+# 📢 Introducing LoanWise — Real-Time Peer‑to‑Peer Lending
+
+LoanWise is a **smart, event‑driven lending marketplace** where **Borrowers**, **Lenders**, and **Admins** interact seamlessly.  
+Built with **real‑time notifications**, **clear loan tracking**, and **secure role‑based access**, LoanWise is designed to remove uncertainty from lending — no more refreshing dashboards or waiting days for updates.
+
+---
+
+## 🎯 What LoanWise Does — From a User’s Perspective
+
+### 👤 Borrowers
+- **Apply for loans in minutes** with transparent terms and no hidden fees.
+- **Upload documents securely** (income proof, payslips, etc.).
+- **Get instant updates** when your loan is approved, funded, or disbursed.
+- **Track your repayment schedule** month-by-month, including amounts and due dates.
+- **Stay informed** with due reminders so you never miss a payment.
+
+### 💰 Lenders
+- **Browse open loan requests** and choose which ones to fund — even partially.
+- **Diversify your portfolio** by funding multiple borrowers.
+- **See your investment returns** and repayment history clearly in your dashboard.
+- **Receive real-time alerts** when repayments are made.
+- **Manage risk** with borrower profiles and risk-level indicators.
+
+### 🛡 Admins
+- **Approve or reject loans** based on borrower profiles and risk scores.
+- **Oversee marketplace health** with loan stats, funding rates, and overdue reports.
+- **Audit all key actions** for compliance and transparency.
+- **Trigger overdue repayment checks** and send notifications to relevant users.
+
+---
+
+## 🚀 Why LoanWise is Different
+
+Traditional platforms rely on borrowers and lenders to **manually check** for updates. LoanWise changes that by being **event‑driven**:
+- **SignalR in‑app notifications**: borrowers and lenders see changes instantly without refreshing.
+- **SendGrid email alerts**: important updates land directly in your inbox.
+- **Push over pull**: LoanWise informs you — you don’t need to chase updates.
+
+This means:
+- Faster decision-making.
+- Less manual checking.
+- A smoother, more engaging lending experience.
+
+---
+
+## 🧩 Key Features
+
+### Loan Lifecycle Management
+- Apply → Fund → Disburse → Repay — fully tracked in the system.
+- Supports **multi‑lender funding** for a single loan.
+- Auto‑generated repayment schedules.
+
+### Role-Based Dashboards
+- **Borrower Dashboard**: loan status, repayments, outstanding balance.
+- **Lender Dashboard**: portfolio summary, open loans, returns.
+- **Admin Dashboard**: marketplace stats, overdue checks, approval backlog.
+
+### Secure & Transparent
+- JWT authentication with role‑based authorization (Borrower, Lender, Admin).
+- All actions return structured API responses (`ApiResponse<T>`).
+- Audit-friendly action logs.
+
+### Real-Time Notifications
+- **Events**: funding, disbursement, repayment, overdue detection.
+- **Channels**: SignalR (in-app), SendGrid (email).
+- **Composite Notifier** sends to multiple channels automatically.
+
+### Tech Foundation
+- **Clean Architecture** + CQRS (MediatR) for scalability & maintainability.
+- **FluentValidation** for input checks.
+- **AutoMapper** for clean DTO mapping.
+- **Azure Ready**: SQL, Blob Storage, Key Vault, App Insights.
+
+---
+
+## 💡 In Short
+LoanWise puts **clarity, speed, and fairness** at the heart of peer‑to‑peer lending — making it easy for borrowers to get funded, lenders to track returns, and admins to run a healthy marketplace.
+
+
+
+
+
 # LoanWise — Event‑Driven Loan Management (Clean Architecture, .NET 9, Azure)
 
 LoanWise is a peer‑to‑peer loan platform built to demonstrate senior‑level architecture and delivery. It showcases a clean, testable .NET 9 backend using CQRS + MediatR, a rich DTO boundary, role‑based security, and **event‑driven notifications** (SignalR + SendGrid) so borrowers and lenders don’t have to poll dashboards.
+
 ---
 
 ## Table of Contents
@@ -240,6 +323,7 @@ If you’re reviewing this repo for a role: this project is designed to make my 
 ## License
 
 MIT — do what you like, attribution appreciated.
+
 
 
 
