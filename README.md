@@ -1,6 +1,7 @@
 # LoanWise — Event‑Driven Loan Management (Clean Architecture, .NET 9, Azure)
 
 LoanWise is a peer‑to‑peer loan platform built to demonstrate senior‑level architecture and delivery. It showcases a clean, testable .NET 9 backend using CQRS + MediatR, a rich DTO boundary, role‑based security, and **event‑driven notifications** (SignalR + SendGrid) so borrowers and lenders don’t have to poll dashboards.
+
 ---
 
 ## Table of Contents
@@ -240,6 +241,7 @@ If you’re reviewing this repo for a role: this project is designed to make my 
 ## License
 
 MIT — do what you like, attribution appreciated.
+
 
 
 
