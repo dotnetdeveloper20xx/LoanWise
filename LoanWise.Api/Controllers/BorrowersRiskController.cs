@@ -39,9 +39,13 @@ public sealed class BorrowersRiskController : ControllerBase
         [FromQuery] string status,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 25,
+        [FromQuery] string? search = null,
+        [FromQuery] string? sortBy = null,   // score|verifiedAt|name|risk|status
+        [FromQuery] string sortDir = "desc", // asc|desc
         CancellationToken ct = default)
     {
-        var res = await _mediator.Send(new ListBorrowersByKycStatusQuery(status, page, pageSize), ct);
+        var res = await _mediator.Send(
+            new ListBorrowersByKycStatusQuery(status, page, pageSize, search, sortBy, sortDir), ct);
         return Ok(res);
     }
 }
