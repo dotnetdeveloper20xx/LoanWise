@@ -3,6 +3,7 @@ using LoanWise.Domain.Entities;
 using LoanWise.Infrastructure.Common;
 using LoanWise.Infrastructure.Credit;
 using LoanWise.Infrastructure.Email;
+using LoanWise.Infrastructure.Exports;
 using LoanWise.Infrastructure.Identity;
 using LoanWise.Infrastructure.Kyc;
 using LoanWise.Infrastructure.Notifications;
@@ -51,6 +52,9 @@ public static class AddInfrastructureServices
         services.AddScoped<ICreditScoringService, MockCreditScoringService>();
 
         services.AddScoped<IBorrowerRiskRepository, BorrowerRiskRepository>();
+
+        services.AddSingleton<IRepaymentPlanPdfService, RepaymentPlanPdfService>();      
+        services.AddSingleton<ITransactionExportService, TransactionExportService>();
 
 
         return services;
