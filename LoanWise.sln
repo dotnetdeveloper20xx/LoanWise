@@ -13,6 +13,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LoanWise.Infrastructure", "
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LoanWise.Persistence", "LoanWise.Persistence\LoanWise.Persistence.csproj", "{0A0F868E-D2DD-4D21-9D0C-FBA694749149}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LoanWise.Tests", "LoanWise.Tests\LoanWise.Tests.csproj", "{904EDBA5-CAC4-4686-8BC2-841436FEE9C2}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -83,6 +85,18 @@ Global
 		{0A0F868E-D2DD-4D21-9D0C-FBA694749149}.Release|x64.Build.0 = Release|Any CPU
 		{0A0F868E-D2DD-4D21-9D0C-FBA694749149}.Release|x86.ActiveCfg = Release|Any CPU
 		{0A0F868E-D2DD-4D21-9D0C-FBA694749149}.Release|x86.Build.0 = Release|Any CPU
+		{904EDBA5-CAC4-4686-8BC2-841436FEE9C2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{904EDBA5-CAC4-4686-8BC2-841436FEE9C2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{904EDBA5-CAC4-4686-8BC2-841436FEE9C2}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{904EDBA5-CAC4-4686-8BC2-841436FEE9C2}.Debug|x64.Build.0 = Debug|Any CPU
+		{904EDBA5-CAC4-4686-8BC2-841436FEE9C2}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{904EDBA5-CAC4-4686-8BC2-841436FEE9C2}.Debug|x86.Build.0 = Debug|Any CPU
+		{904EDBA5-CAC4-4686-8BC2-841436FEE9C2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{904EDBA5-CAC4-4686-8BC2-841436FEE9C2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{904EDBA5-CAC4-4686-8BC2-841436FEE9C2}.Release|x64.ActiveCfg = Release|Any CPU
+		{904EDBA5-CAC4-4686-8BC2-841436FEE9C2}.Release|x64.Build.0 = Release|Any CPU
+		{904EDBA5-CAC4-4686-8BC2-841436FEE9C2}.Release|x86.ActiveCfg = Release|Any CPU
+		{904EDBA5-CAC4-4686-8BC2-841436FEE9C2}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
