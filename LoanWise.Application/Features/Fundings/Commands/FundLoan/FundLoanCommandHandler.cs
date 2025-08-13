@@ -1,91 +1,91 @@
-﻿using LoanWise.Application.Common.Interfaces;
+﻿// Application/Features/Fundings/Commands/FundLoan/FundLoanCommandHandler.cs
+using LoanWise.Application.Common.Interfaces;
+using LoanWise.Application.DTOs.Fundings;
 using LoanWise.Domain.Entities;
-using LoanWise.Domain.ValueObjects;
-using LoanWise.Domain.Events;
+using LoanWise.Domain.Enums;
 using MediatR;
-using Microsoft.Extensions.Logging;
+using Microsoft.EntityFrameworkCore;
 using StoreBoost.Application.Common.Models;
 
 namespace LoanWise.Application.Features.Fundings.Commands.FundLoan
 {
-    /// <summary>
-    /// Handles funding logic for a loan by a lender.
-    /// </summary>
-    public class FundLoanCommandHandler : IRequestHandler<FundLoanCommand, ApiResponse<Guid>>
+    public sealed class FundLoanCommandHandler
+        : IRequestHandler<FundLoanCommand, ApiResponse<FundingResultDto>>
     {
-        private readonly ILoanRepository _loanRepository;
-        private readonly IFundingRepository _fundingRepository;
-        private readonly ILogger<FundLoanCommandHandler> _logger;
-        private readonly IUserContext _userContext;
-        private readonly IMediator _mediator;
+        private readonly IApplicationDbContext _db;
+        private readonly IUserContext _currentUser;
 
-        public FundLoanCommandHandler(
-            ILoanRepository loanRepository,
-            IFundingRepository fundingRepository,
-            ILogger<FundLoanCommandHandler> logger,
-            IUserContext userContext,
-            IMediator mediator)
+        public FundLoanCommandHandler(IApplicationDbContext db, IUserContext currentUser)
         {
-            _loanRepository = loanRepository;
-            _fundingRepository = fundingRepository;
-            _logger = logger;
-            _userContext = userContext;
-            _mediator = mediator;
+            _db = db;
+            _currentUser = currentUser;
         }
 
-        public async Task<ApiResponse<Guid>> Handle(FundLoanCommand request, CancellationToken cancellationToken)
+        public async Task<ApiResponse<FundingResultDto>> Handle(FundLoanCommand cmd, CancellationToken ct)
         {
-            if (!_userContext.UserId.HasValue)
-                return ApiResponse<Guid>.FailureResult("Unauthorized: missing user ID");
+            // 🔧 FIX: handle nullable Guid from the current user
+            var lenderIdOpt = _currentUser.UserId; // Guid?
+            if (!lenderIdOpt.HasValue || lenderIdOpt.Value == Guid.Empty)
+                return ApiResponse<FundingResultDto>.FailureResult("Not authenticated as a lender.");
 
-            var lenderId = _userContext.UserId.Value;
+            var lenderId = lenderIdOpt.Value; // non-null Guid from here on
 
-            var loan = await _loanRepository.GetByIdAsync(request.LoanId, cancellationToken);
-            if (loan == null)
-            {
-                _logger.LogWarning("Loan {LoanId} not found", request.LoanId);
-                return ApiResponse<Guid>.FailureResult("Loan not found.");
-            }
+            // Load loan + fundings
+            var loan = await _db.Loans
+                .Include(l => l.Fundings)
+                .FirstOrDefaultAsync(l => l.Id == cmd.LoanId, ct);
 
-            var currentFunded = loan.Fundings.Sum(f => f.Amount);
-            var remaining = loan.Amount - currentFunded;
+            if (loan is null)
+                return ApiResponse<FundingResultDto>.FailureResult("Loan not found.");
 
-            if (request.Amount <= 0)
-                return ApiResponse<Guid>.FailureResult("Funding amount must be greater than zero.");
+            if (loan.BorrowerId == lenderId)
+                return ApiResponse<FundingResultDto>.FailureResult("Lenders cannot fund their own loans.");
 
-            if (request.Amount > remaining)
-                return ApiResponse<Guid>.FailureResult("Funding exceeds remaining loan amount.");
+            if (loan.Status == LoanStatus.Rejected)
+                return ApiResponse<FundingResultDto>.FailureResult("Cannot fund a rejected loan.");
+
+            var contributed = loan.Fundings.Sum(f => f.Amount);
+            var remainingBefore = Math.Max(loan.Amount - contributed, 0m);
+            if (remainingBefore <= 0m)
+                return ApiResponse<FundingResultDto>.FailureResult("Loan is already fully funded.");
+
+            var applied = Math.Min(cmd.Amount, remainingBefore);
 
             var funding = new Funding(
                 id: Guid.NewGuid(),
-                loanId: request.LoanId,
-                lenderId: lenderId,
-                amount: request.Amount,
+                lenderId: lenderId,    
+                loanId: loan.Id,
+                amount: applied,
                 fundedOn: DateTime.UtcNow
             );
 
             loan.AddFunding(funding);
-            loan.UpdateFundingStatus(funding); // may flip to Funded
+            loan.UpdateFundingStatus(funding);
 
-            await _fundingRepository.AddAsync(funding, cancellationToken);
-            await _loanRepository.UpdateAsync(loan, cancellationToken);
+            await _db.Fundings.AddAsync(funding, ct);
+            await _db.SaveChangesAsync(ct);
 
-            _logger.LogInformation(
-                "Loan {LoanId} funded by lender {LenderId} with {Amount}. Loan status: {Status}",
-                request.LoanId, lenderId, request.Amount, loan.Status
+            var remainingAfter = Math.Max(loan.Amount - (contributed + applied), 0m);
+            var fullyFunded = loan.IsFullyFunded();
+
+            var dto = new FundingResultDto(
+                LoanId: loan.Id,
+                FundingId: funding.Id,
+                LenderId: lenderId,             
+                requestedAmount: cmd.Amount,
+                appliedAmount: applied,
+                remainingBefore: remainingBefore,
+                remainingAfter: remainingAfter,
+                fullyFunded: fullyFunded
             );
 
-            // Publish domain event (after persistence)
-            var isFullyFunded = loan.IsFullyFunded(); // or loan.Status == LoanStatus.Funded
-            await _mediator.Publish(new LoanFundedEvent(
-                loan.Id,
-                funding.Id,
-                lenderId,
-                request.Amount,
-                isFullyFunded
-            ), cancellationToken);
+            var msg = applied == cmd.Amount
+                ? "Funding recorded."
+                : $"Funding recorded (auto-adjusted to remaining: {applied:0.00}).";
 
-            return ApiResponse<Guid>.SuccessResult(funding.Id, "Funding recorded successfully.");
+            return ApiResponse<FundingResultDto>.SuccessResult(dto, msg);
         }
+
+
     }
 }

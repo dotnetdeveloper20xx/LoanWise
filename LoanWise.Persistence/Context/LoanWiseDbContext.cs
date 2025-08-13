@@ -82,7 +82,11 @@ namespace LoanWise.Persistence.Context
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
-             
+
+            modelBuilder.Entity<Loan>()
+                        .Property(x => x.Amount)
+                        .HasPrecision(18, 2);
+
 
             // Funding.Amount (Money VO) + prevent cascade delete to Lender
             modelBuilder.Entity<Funding>(builder =>
@@ -93,7 +97,11 @@ namespace LoanWise.Persistence.Context
                     .WithMany()
                     .HasForeignKey(f => f.LenderId)
                     .OnDelete(DeleteBehavior.Restrict);
-            });
+
+                 builder
+                    .Property(x => x.Amount)
+                    .HasPrecision(18, 2);
+                            });
 
             // Repayment.Amount: you said this is now a DECIMAL property named RepaymentAmount
             modelBuilder.Entity<Repayment>(builder =>
