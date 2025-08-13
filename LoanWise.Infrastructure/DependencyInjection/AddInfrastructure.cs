@@ -1,5 +1,6 @@
 ﻿using LoanWise.Application.Common.Interfaces;
 using LoanWise.Domain.Entities;
+using LoanWise.Infrastructure.Auth;
 using LoanWise.Infrastructure.Common;
 using LoanWise.Infrastructure.Credit;
 using LoanWise.Infrastructure.Email;
@@ -25,9 +26,13 @@ public static class AddInfrastructureServices
         services.AddScoped<IFundingRepository, FundingRepository>();
         services.AddScoped<IUserRepository, UserRepository>();
 
-        services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
+
+        services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>(); 
+        services.AddScoped<ITokenService, JwtTokenService>();
+       
         services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
         services.AddScoped<IPasswordService, PasswordService>();
+           
 
         services.AddHttpContextAccessor();
         services.AddScoped<IUserContext, UserContext>();

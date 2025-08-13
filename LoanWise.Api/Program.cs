@@ -2,6 +2,8 @@
 using LoanWise.Application.DependencyInjection;       // AddApplication()
 using LoanWise.Infrastructure.DependencyInjection;    // AddInfrastructure(), AddPersistence()
 using LoanWise.Infrastructure.Notifications;          // EmailNotificationService (registered in Infrastructure)
+using LoanWise.Persistence.Context;
+using LoanWise.Persistence.Setup;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.IdentityModel.Tokens;
@@ -111,6 +113,26 @@ builder.Services.AddScoped<INotificationService>(sp =>
 // Build & Pipeline
 // ─────────────────────────────────────────────
 var app = builder.Build();
+
+
+// --- SEED DATABASE ---
+using (var scope = app.Services.CreateScope())
+{
+    var services = scope.ServiceProvider;
+    try
+    {
+        var dbContext = services.GetRequiredService<LoanWiseDbContext>();
+        var logger = services.GetService<ILogger<Program>>();
+
+        await DbInitializer.InitializeAsync(dbContext, logger);
+    }
+    catch (Exception ex)
+    {
+        var logger = services.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "An error occurred while seeding the database.");
+    }
+}
+
 
 if (app.Environment.IsDevelopment())
 {

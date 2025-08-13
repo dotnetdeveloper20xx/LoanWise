@@ -35,8 +35,8 @@ namespace LoanWise.Application.Features.Loans.Queries.GetBorrowerLoanHistory
                 .Take(request.PageSize)
                 .Select(l => new BorrowerLoanHistoryDto(
                     l.Id,
-                    l.Amount.Value,
-                    l.Fundings.Sum(f => f.Amount.Value),
+                    l.Amount,
+                    l.Fundings.Sum(f => f.Amount),
                     l.Purpose.ToString(),
                     l.Status.ToString(),
                     l.RiskLevel.ToString(),

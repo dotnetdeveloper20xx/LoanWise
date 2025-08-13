@@ -26,7 +26,7 @@ namespace LoanWise.Domain.Entities
         /// <summary>
         /// Amount involved in the transaction.
         /// </summary>
-        public Money Amount { get; private set; }
+        public decimal Amount { get; private set; }
 
         /// <summary>
         /// Type of transaction: Funding deposit, release to borrower, etc.
@@ -60,12 +60,12 @@ namespace LoanWise.Domain.Entities
         public EscrowTransaction(
             Guid id,
             Guid loanId,
-            Money amount,
+            decimal amount,
             EscrowTransactionType type,
             DateTime timestamp,
             string? referenceNote = null)
         {
-            if (amount.Value <= 0)
+            if (amount <= 0)
                 throw new ArgumentOutOfRangeException(nameof(amount), "Escrow amount must be greater than zero.");
 
             Id = id;

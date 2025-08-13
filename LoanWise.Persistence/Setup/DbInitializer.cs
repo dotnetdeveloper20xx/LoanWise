@@ -1,216 +1,245 @@
 ﻿using LoanWise.Domain.Entities;
 using LoanWise.Domain.Enums;
-using LoanWise.Domain.ValueObjects;
 using LoanWise.Persistence.Context;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace LoanWise.Persistence.Setup
 {
+    /// <summary>
+    /// Seeds rich data for local/QA. Order: Users -> Loans -> Fundings -> Disburse+Repayments.
+    /// Uses domain methods for all state transitions; avoids touching internal fields directly.
+    /// </summary>
     public static class DbInitializer
     {
-        //public static async Task InitializeAsync(LoanWiseDbContext context, ILogger logger)
-        //{
-        //    // Apply migrations
-        //    if ((await context.Database.GetPendingMigrationsAsync()).Any())
-        //    {
-        //        logger.LogInformation("Applying migrations...");
-        //        await context.Database.MigrateAsync();
-        //    }
+        public static async Task InitializeAsync(LoanWiseDbContext db, ILogger? logger = null, CancellationToken ct = default)
+        {
+            // --- Apply migrations only if there are pending ones ---
+            try
+            {
+                var pending = await db.Database.GetPendingMigrationsAsync(ct);
+                if (pending.Any())
+                {
+                    logger?.LogInformation(
+                        "Applying {Count} pending migrations to DB '{DbName}' on '{DataSource}'...",
+                        pending.Count(),
+                        db.Database.GetDbConnection().Database,
+                        db.Database.GetDbConnection().DataSource
+                    );
 
-        //    const string demoPassword = "demo123";
-        //    var hasher = new PasswordHasher<User>();
-        //    var rnd = new Random();
+                    await db.Database.MigrateAsync(ct);
 
-        //    // =====================================================
-        //    // PHASE 1: USERS
-        //    // =====================================================
-        //    logger.LogInformation("Seeding users...");
+                    logger?.LogInformation("Migrations applied successfully.");
+                }
+                else
+                {
+                    logger?.LogInformation(
+                        "No pending migrations for DB '{DbName}' on '{DataSource}'.",
+                        db.Database.GetDbConnection().Database,
+                        db.Database.GetDbConnection().DataSource
+                    );
+                }
+            }
+            catch (Exception ex)
+            {
+                logger?.LogWarning(ex, "Automatic migration check/apply failed. Continuing without applying migrations.");
+            }
 
-        //    // Borrowers
-        //    for (int i = 1; i <= 10; i++)
-        //    {
-        //        var email = $"borrower{i}@demo.com";
-        //        if (!await context.Users.AnyAsync(u => u.Email == email))
-        //        {
-        //            var user = new User
-        //            {
-        //                Id = Guid.NewGuid(),
-        //                FullName = $"Borrower {i}",
-        //                Email = email,
-        //                Role = UserRole.Borrower
-        //            };
-        //            user.PasswordHash = hasher.HashPassword(user, demoPassword);
-        //            context.Users.Add(user);
-        //        }
-        //    }
+            // Idempotent guard (skip if data already present)
+            if (await db.Users.AnyAsync(ct))
+            {
+                logger?.LogInformation("DbInitializer: Users already exist. Skipping seed.");
+                return;
+            }
 
-        //    // Lenders
-        //    for (int i = 1; i <= 5; i++)
-        //    {
-        //        var email = $"lender{i}@demo.com";
-        //        if (!await context.Users.AnyAsync(u => u.Email == email))
-        //        {
-        //            var user = new User
-        //            {
-        //                Id = Guid.NewGuid(),
-        //                FullName = $"Lender {i}",
-        //                Email = email,
-        //                Role = UserRole.Lender
-        //            };
-        //            user.PasswordHash = hasher.HashPassword(user, demoPassword);
-        //            context.Users.Add(user);
-        //        }
-        //    }
+            logger?.LogInformation("DbInitializer: Seeding started.");
 
-        //    // Admin
-        //    var adminEmail = "admin@loanwise.com";
-        //    if (!await context.Users.AnyAsync(u => u.Email == adminEmail))
-        //    {
-        //        var admin = new User
-        //        {
-        //            Id = Guid.NewGuid(),
-        //            FullName = "Admin",
-        //            Email = adminEmail,
-        //            Role = UserRole.Admin
-        //        };
-        //        admin.PasswordHash = hasher.HashPassword(admin, demoPassword);
-        //        context.Users.Add(admin);
-        //    }
+            var rand = new Random(20250813);
+            string SeedPasswordHash() => HashPassword("P@ssw0rd!"); // dev/test only
 
-        //    await context.SaveChangesAsync();
-        //    context.ChangeTracker.Clear();
+            // 1) USERS ----------------------------------------------------------
+            var admin = new User
+            {
+                Id = Guid.NewGuid(),
+                FullName = "System Admin",
+                Email = "admin@loanwise.local",
+                Role = UserRole.Admin,
+                IsActive = true,
+                PasswordHash = SeedPasswordHash()
+            };
+            admin.AssignCreditProfile(score: 820, Domain.Entities.RiskTier.High);
 
-        //    var borrowers = await context.Users.AsNoTracking()
-        //        .Where(u => u.Role == UserRole.Borrower)
-        //        .ToListAsync();
+            var borrowers = Enumerable.Range(1, 10).Select(i =>
+            {
+                var u = new User
+                {
+                    Id = Guid.NewGuid(),
+                    FullName = $"Borrower {i}",
+                    Email = $"borrower{i}@loanwise.local",
+                    Role = UserRole.Borrower,
+                    IsActive = true,
+                    PasswordHash = SeedPasswordHash()
+                };
+                u.AssignCreditProfile(score: rand.Next(560, 780), Domain.Entities.RiskTier.Low);
+                return u;
+            }).ToList();
 
-        //    var lenderIds = await context.Users.AsNoTracking()
-        //        .Where(u => u.Role == UserRole.Lender)
-        //        .Select(u => u.Id)
-        //        .ToListAsync();
+            var lenders = Enumerable.Range(1, 8).Select(i =>
+            {
+                var u = new User
+                {
+                    Id = Guid.NewGuid(),
+                    FullName = $"Lender {i}",
+                    Email = $"lender{i}@loanwise.local",
+                    Role = UserRole.Lender,
+                    IsActive = true,
+                    PasswordHash = SeedPasswordHash()
+                };
+                u.AssignCreditProfile(score: rand.Next(620, 800), Domain.Entities.RiskTier.Medium);
+                return u;
+            }).ToList();
 
-        //    if (!borrowers.Any() || !lenderIds.Any())
-        //    {
-        //        logger.LogWarning("No borrowers or lenders found, aborting loan/funding seeding.");
-        //        return;
-        //    }
+            await db.Users.AddAsync(admin, ct);
+            await db.Users.AddRangeAsync(borrowers, ct);
+            await db.Users.AddRangeAsync(lenders, ct);
+            await db.SaveChangesAsync(ct);
+            logger?.LogInformation("Seeded users (1 admin, {Borrowers} borrowers, {Lenders} lenders).", borrowers.Count, lenders.Count);
 
-        //    // =====================================================
-        //    // PHASE 2: LOANS
-        //    // =====================================================
-        //    logger.LogInformation("Seeding loans...");
+            // 2) LOANS (Pending -> Approve) ------------------------------------
+            var purposes = Enum.GetValues<LoanPurpose>();
+            var loans = new List<Loan>();
 
-        //    var purposes = Enum.GetValues(typeof(LoanPurpose)).Cast<LoanPurpose>().ToArray();
-        //    var riskLevels = Enum.GetValues(typeof(RiskLevel)).Cast<RiskLevel>().ToArray();
-        //    var loansToInsert = new List<Loan>();
+            foreach (var b in borrowers)
+            {
+                var loanCount = rand.Next(1, 3); // 1–2 per borrower
+                for (int i = 0; i < loanCount; i++)
+                {
+                    decimal amount = rand.Next(2, 21) * 1000m; // £2k–£20k
+                    int months = new[] { 6, 12, 18, 24, 36 }[rand.Next(5)];
+                    var purpose = purposes[rand.Next(purposes.Length)];
 
-        //    foreach (var borrower in borrowers)
-        //    {
-        //        for (int i = 0; i < 3; i++)
-        //        {
-        //            var amount = new Money(rnd.Next(1000, 20000));
-        //            var duration = rnd.Next(6, 24);
-        //            var purpose = purposes[rnd.Next(purposes.Length)];
+                    var loan = new Loan(
+                        id: Guid.NewGuid(),
+                        borrowerId: b.Id,
+                        amount: amount,
+                        durationInMonths: months,
+                        purpose: purpose
+                    );
 
-        //            var loan = new Loan(Guid.NewGuid(), borrower.Id, amount, duration, purpose);
-        //            loan.Approve(riskLevels[rnd.Next(riskLevels.Length)]);
-        //            loansToInsert.Add(loan);
-        //        }
-        //    }
+                    var risk = amount switch
+                    {
+                        <= 5000m => RiskLevel.Low,
+                        <= 12000m => RiskLevel.Medium,
+                        _ => RiskLevel.High
+                    };
+                    loan.Approve(risk);
+                    loans.Add(loan);
+                }
+            }
 
-        //    context.Loans.AddRange(loansToInsert);
-        //    await context.SaveChangesAsync();
-        //    context.ChangeTracker.Clear();
+            await db.Loans.AddRangeAsync(loans, ct);
+            await db.SaveChangesAsync(ct);
+            logger?.LogInformation("Seeded and approved {LoanCount} loans.", loans.Count);
 
-        //    // Pull persisted loans from DB
-        //    var persistedLoans = await context.Loans
-        //        .AsNoTracking()
-        //        .Select(l => new { l.Id, l.Amount })
-        //        .ToListAsync();
+            // 3) FUNDINGS (domain: AddFunding + UpdateFundingStatus) -----------
+            var allFundings = new List<Funding>();
 
-        //    logger.LogInformation("Loans in DB after save: {count}", persistedLoans.Count);
-        //    foreach (var loan in persistedLoans)
-        //        logger.LogInformation("DB LoanId: {id}", loan.Id);
+            foreach (var loan in loans)
+            {
+                // ~80% of loans receive some funding
+                if (rand.NextDouble() >= 0.8) continue;
 
-        //    if (!persistedLoans.Any())
-        //    {
-        //        logger.LogError("No loans persisted, aborting funding creation.");
-        //        return;
-        //    }
+                var lendersForLoan = lenders
+                    .OrderBy(_ => rand.Next())
+                    .Take(rand.Next(1, Math.Min(4, lenders.Count)))
+                    .ToList();
 
-        //    // =====================================================
-        //    // PHASE 3: FUNDINGS
-        //    // =====================================================
-        //    logger.LogInformation("Seeding fundings...");
+                foreach (var lender in lendersForLoan)
+                {
+                    var contributed = allFundings.Where(f => f.LoanId == loan.Id).Sum(f => f.Amount);
+                    var left = loan.Amount - contributed;
+                    if (left <= 0) break;
 
-        //    var fundingsToInsert = new List<Funding>();
+                    var chunk = Math.Min(left, rand.Next(1, 8) * 500m); // £500–£3500
+                    if (chunk <= 0) break;
 
-        //    foreach (var loan in persistedLoans)
-        //    {
-        //        var pickedLenders = lenderIds
-        //            .OrderBy(_ => rnd.Next())
-        //            .Take(Math.Min(3, lenderIds.Count))
-        //            .ToList();
+                    var funding = new Funding(
+                        id: Guid.NewGuid(),
+                        lenderId: lender.Id,
+                        loanId: loan.Id,
+                        amount: chunk,
+                        fundedOn: DateTime.UtcNow.AddDays(-rand.Next(0, 20))
+                    );
 
-        //        foreach (var lenderId in pickedLenders)
-        //        {
-        //            var fundingAmount = rnd.Next(500, Math.Max(600, (int)(loan.Amount.Value / 2)));
+                    loan.AddFunding(funding);          // raises FundingAddedEvent
+                    loan.UpdateFundingStatus(funding); // may raise LoanFundedEvent
+                    allFundings.Add(funding);
 
-        //            fundingsToInsert.Add(new Funding(
-        //                Guid.NewGuid(),
-        //                loan.Id,        // LoanId from DB
-        //                lenderId,       // LenderId from DB
-        //                new Money(fundingAmount),
-        //                DateTime.UtcNow
-        //            ));
-        //        }
-        //    }
+                    if (loan.IsFullyFunded()) break;
+                }
+            }
 
-        //    // Debug check: ensure all funding LoanIds exist in DB
-        //    var dbLoanIds = persistedLoans.Select(l => l.Id).ToHashSet();
-        //    var invalidFundingIds = fundingsToInsert.Select(f => f.LoanId).Where(id => !dbLoanIds.Contains(id)).Distinct().ToList();
+            await db.Fundings.AddRangeAsync(allFundings, ct);
+            await db.SaveChangesAsync(ct);
+            logger?.LogInformation("Added {FundingCount} funding records.", allFundings.Count);
 
-        //    if (invalidFundingIds.Any())
-        //    {
-        //        logger.LogError("Aborting: Found {count} funding LoanIds not in DB: {ids}",
-        //            invalidFundingIds.Count, string.Join(",", invalidFundingIds));
-        //        return;
-        //    }
+            // 4) DISBURSE & GENERATE REPAYMENTS --------------------------------
+            var fundedLoans = await db.Loans.Where(l => l.Status == LoanStatus.Funded).ToListAsync(ct);
+            var disbursedCount = 0;
 
-        //    foreach (var f in fundingsToInsert)
-        //        logger.LogInformation("Funding -> LoanId: {id}", f.LoanId);
+            foreach (var loan in fundedLoans)
+            {
+                if (rand.NextDouble() < 0.55)
+                {
+                    loan.Disburse();                   // raises LoanDisbursedEvent
+                    loan.GenerateRepaymentSchedule();  // creates repayments inside aggregate
+                    disbursedCount++;
+                }
+            }
 
-        //    context.Fundings.AddRange(fundingsToInsert);
-        //    await context.SaveChangesAsync();
-        //    context.ChangeTracker.Clear();
+            await db.SaveChangesAsync(ct);
 
-        //    // =====================================================
-        //    // FINAL: UPDATE LOAN STATUS & GENERATE REPAYMENTS
-        //    // =====================================================
-        //    logger.LogInformation("Updating loans with funding status and generating repayments...");
+            // Mark a subset of early repayments as paid/overdue (null-safe borrower lookup)
+            var repayEntries = await (
+                from r in db.Repayments
+                join l in db.Loans on r.LoanId equals l.Id into lj
+                from l in lj.DefaultIfEmpty() // left join (safety)
+                where r.DueDate < DateTime.UtcNow.AddMonths(3)
+                select new
+                {
+                    Repayment = r,
+                    BorrowerId = l != null ? l.BorrowerId : Guid.Empty
+                }
+            ).ToListAsync(ct);
 
-        //    var loansWithFundings = await context.Loans
-        //        .Include(l => l.Fundings)
-        //        .ToListAsync();
+            foreach (var entry in repayEntries)
+            {
+                var r = entry.Repayment;
+                var borrowerId = entry.BorrowerId;
 
-        //    foreach (var loan in loansWithFundings)
-        //    {
-        //        loan.UpdateFundingStatus();
-        //        if (loan.IsFullyFunded())
-        //        {
-        //            loan.Disburse();
-        //            loan.GenerateRepaymentSchedule();
-        //        }
-        //    }
+                if (r.DueDate < DateTime.UtcNow.AddDays(-7) && rand.NextDouble() < 0.35)
+                {
+                    // leave unpaid (overdue)
+                }
+                else if (r.DueDate < DateTime.UtcNow && rand.NextDouble() < 0.55 && borrowerId != Guid.Empty)
+                {
+                    r.MarkAsPaid(r.DueDate.AddDays(rand.Next(0, 7)), borrowerId);
+                }
+            }
 
-        //    await context.SaveChangesAsync();
+            await db.SaveChangesAsync(ct);
+            logger?.LogInformation("Disbursed {Disbursed} loans and generated repayment schedules.", disbursedCount);
+            logger?.LogInformation("DbInitializer: Seeding completed successfully.");
+        }
 
-        //    logger.LogInformation(
-        //        "Seeding completed: {Borrowers} borrowers, {Lenders} lenders, {Loans} loans, {Fundings} fundings.",
-        //        borrowers.Count, lenderIds.Count, loansToInsert.Count, fundingsToInsert.Count
-        //    );
-        //}
+        // Simple SHA-256 for seed-only passwords (replace with your app's real hasher if needed)
+        private static string HashPassword(string raw)
+        {
+            using var sha = SHA256.Create();
+            var bytes = sha.ComputeHash(Encoding.UTF8.GetBytes(raw));
+            return Convert.ToBase64String(bytes);
+        }
     }
 }

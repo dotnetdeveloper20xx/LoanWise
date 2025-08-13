@@ -25,11 +25,11 @@ namespace LoanWise.Application.Features.Admin.Queries.GetLoanReport
                 .Select(l => new LoanReportDto(
                     l.Id,
                     l.Borrower.FullName,
-                    l.Amount.Value,
+                    l.Amount,
                     l.Purpose.ToString(),
                     l.Status.ToString(),
                     l.RiskLevel.ToString(),
-                    l.Fundings.Sum(f => f.Amount.Value),
+                    l.Fundings.Sum(f => f.Amount),
                     l.CreatedAtUtc,
                     l.ApprovedAtUtc,
                     l.DisbursedAtUtc

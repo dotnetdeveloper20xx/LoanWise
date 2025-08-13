@@ -20,7 +20,7 @@ namespace LoanWise.Domain.Entities
         // Navigation can be null at creation; EF will populate when needed
         public User? Borrower { get; private set; }
 
-        public Money Amount { get; private set; }
+        public decimal Amount { get; private set; }
         public int DurationInMonths { get; private set; }
         public LoanPurpose Purpose { get; private set; }
 
@@ -39,9 +39,9 @@ namespace LoanWise.Domain.Entities
         // EF
         private Loan() { }
 
-        public Loan(Guid id, Guid borrowerId, Money amount, int durationInMonths, LoanPurpose purpose)
+        public Loan(Guid id, Guid borrowerId, decimal amount, int durationInMonths, LoanPurpose purpose)
         {
-            if (amount is null) throw new ArgumentNullException(nameof(amount));
+            if (amount == 0) throw new ArgumentOutOfRangeException(nameof(durationInMonths), "Loan amount must be > 0.");
             if (durationInMonths <= 0) throw new ArgumentOutOfRangeException(nameof(durationInMonths), "Duration must be > 0.");
 
             Id = id;
@@ -100,7 +100,7 @@ namespace LoanWise.Domain.Entities
             var wasFullyFunded = IsFullyFunded();
 
             _fundings.Add(funding);
-            AddDomainEvent(new FundingAddedEvent(Id, funding.LenderId, funding.Amount.Value));
+            AddDomainEvent(new FundingAddedEvent(Id, funding.LenderId, funding.Amount));
 
             // If we just crossed the threshold (and weren't already marked Funded), flip state & raise event.
             if (!wasFullyFunded && IsFullyFunded() && Status == LoanStatus.Approved)
@@ -112,7 +112,7 @@ namespace LoanWise.Domain.Entities
                     Id,
                     lastFunding.Id,
                     lastFunding.LenderId,
-                    lastFunding.Amount.Value,
+                    lastFunding.Amount,
                     true
                 ));
             }
@@ -129,8 +129,8 @@ namespace LoanWise.Domain.Entities
         /// </summary>
         public bool IsFullyFunded()
         {
-            var total = _fundings.Sum(f => f.Amount.Value);
-            return total >= Amount.Value;
+            var total = _fundings.Sum(f => f.Amount);
+            return total >= Amount;
         }
 
         /// <summary>
@@ -146,7 +146,7 @@ namespace LoanWise.Domain.Entities
                     Id,
                     latestFunding.Id,
                     latestFunding.LenderId,
-                    latestFunding.Amount.Value,
+                    latestFunding.Amount,
                     true
                 ));
             }
@@ -176,7 +176,7 @@ namespace LoanWise.Domain.Entities
             if (Status != LoanStatus.Disbursed)
                 throw new InvalidOperationException("Repayment schedule can only be generated for disbursed loans.");
 
-            var monthlyInstallment = Math.Round(Amount.Value / DurationInMonths, 2, MidpointRounding.AwayFromZero);
+            var monthlyInstallment = Math.Round(Amount / DurationInMonths, 2, MidpointRounding.AwayFromZero);
 
             for (int i = 1; i <= DurationInMonths; i++)
             {

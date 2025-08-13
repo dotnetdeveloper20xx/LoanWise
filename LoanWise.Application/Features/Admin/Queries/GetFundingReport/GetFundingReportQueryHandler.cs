@@ -19,21 +19,20 @@ namespace LoanWise.Application.Features.Admin.Queries.GetFundingReport
         public async Task<ApiResponse<List<FundingReportDto>>> Handle(GetFundingReportQuery request, CancellationToken ct)
         {
             var fundings = await _db.Fundings
-                .Include(f => f.Loan)
-                    .ThenInclude(l => l.Borrower)
-                .Include(f => f.Lender)
+                .AsNoTracking()
                 .OrderByDescending(f => f.FundedOn)
                 .Select(f => new FundingReportDto(
                     f.Id,
                     f.LoanId,
-                    f.Loan.Borrower.FullName,
+                    f.Loan != null && f.Loan.Borrower != null ? f.Loan.Borrower.FullName : "(Unknown Borrower)",
                     f.LenderId,
-                    f.Lender.FullName,
-                    f.Amount.Value, // or direct decimal if not a Money object
+                    f.Lender != null ? f.Lender.FullName : "(Unknown Lender)",
+                    f.Amount,
                     f.FundedOn,
-                    f.Loan.Status.ToString()
+                    f.Loan != null ? f.Loan.Status.ToString() : "Unknown"
                 ))
                 .ToListAsync(ct);
+
 
             return ApiResponse<List<FundingReportDto>>.SuccessResult(fundings);
         }

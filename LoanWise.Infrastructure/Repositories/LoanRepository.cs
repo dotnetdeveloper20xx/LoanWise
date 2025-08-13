@@ -51,7 +51,7 @@ namespace LoanWise.Infrastructure.Repositories
             return await _context.Loans
                 .Where(l =>
                     l.Status == LoanStatus.Approved &&
-                    l.Fundings.Select(f => f.Amount.Value).DefaultIfEmpty(0m).Sum() < l.Amount.Value)
+                    l.Fundings.Select(f => f.Amount).DefaultIfEmpty(0m).Sum() < l.Amount)
                 .Include(l => l.Borrower)
                 .AsNoTracking()
                 .ToListAsync(cancellationToken);

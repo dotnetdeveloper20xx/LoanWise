@@ -47,8 +47,8 @@ namespace LoanWise.Application.Features.Fundings.Commands.FundLoan
                 return ApiResponse<Guid>.FailureResult("Loan not found.");
             }
 
-            var currentFunded = loan.Fundings.Sum(f => f.Amount.Value);
-            var remaining = loan.Amount.Value - currentFunded;
+            var currentFunded = loan.Fundings.Sum(f => f.Amount);
+            var remaining = loan.Amount - currentFunded;
 
             if (request.Amount <= 0)
                 return ApiResponse<Guid>.FailureResult("Funding amount must be greater than zero.");
@@ -60,7 +60,7 @@ namespace LoanWise.Application.Features.Fundings.Commands.FundLoan
                 id: Guid.NewGuid(),
                 loanId: request.LoanId,
                 lenderId: lenderId,
-                amount: new Money(request.Amount),
+                amount: request.Amount,
                 fundedOn: DateTime.UtcNow
             );
 

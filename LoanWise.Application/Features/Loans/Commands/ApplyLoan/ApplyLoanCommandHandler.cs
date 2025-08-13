@@ -40,7 +40,7 @@ namespace LoanWise.Application.Features.Loans.Commands.ApplyLoan
                 var loan = new Loan(
                     id: Guid.NewGuid(),
                     borrowerId: borrowerId,
-                    amount: new Money(request.Amount),
+                    amount: request.Amount,
                     durationInMonths: request.DurationInMonths,
                     purpose: request.Purpose
                 );

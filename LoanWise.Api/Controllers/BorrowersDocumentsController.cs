@@ -84,7 +84,7 @@ public sealed class BorrowersDocumentsController : ControllerBase
         {
             LoanId = loan.Id,
             BorrowerName = borrower?.FullName ?? "Borrower",
-            Amount = loan.Amount.Value,
+            Amount = loan.Amount,
             DurationInMonths = loan.DurationInMonths,
             GeneratedAtUtc = DateTime.UtcNow,
             Lines = loan.Repayments
@@ -141,7 +141,7 @@ public sealed class BorrowersDocumentsController : ControllerBase
             BorrowerName = borrower?.FullName ?? "Borrower",
             LenderEntityName = "LoanWise Lenders",
             AgreementDateUtc = DateTime.UtcNow,
-            PrincipalAmount = loan.Amount.Value,
+            PrincipalAmount = loan.Amount,
             DurationInMonths = loan.DurationInMonths,
             DisbursementDateUtc = loan.DisbursedAtUtc,
             FirstPaymentDueDateUtc = firstRepayment?.DueDate,

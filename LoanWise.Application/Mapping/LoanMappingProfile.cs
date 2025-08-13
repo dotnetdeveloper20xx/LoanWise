@@ -12,8 +12,8 @@ namespace LoanWise.Application.Mapping
         {
             CreateMap<Loan, BorrowerLoanDto>()
                 .ForMember(dest => dest.LoanId, opt => opt.MapFrom(src => src.Id))
-                .ForMember(dest => dest.Amount, opt => opt.MapFrom(src => src.Amount.Value))
-                .ForMember(dest => dest.FundedAmount, opt => opt.MapFrom(src => src.Fundings.Sum(f => f.Amount.Value)))
+                .ForMember(dest => dest.Amount, opt => opt.MapFrom(src => src.Amount))
+                .ForMember(dest => dest.FundedAmount, opt => opt.MapFrom(src => src.Fundings.Sum(f => f.Amount)))
                 .ForMember(dest => dest.DurationInMonths, opt => opt.MapFrom(src => src.DurationInMonths))
                 .ForMember(dest => dest.Purpose, opt => opt.MapFrom(src => src.Purpose))
                 .ForMember(dest => dest.Status, opt => opt.MapFrom(src => src.Status))
@@ -21,8 +21,8 @@ namespace LoanWise.Application.Mapping
 
             CreateMap<Loan, LoanSummaryDto>()
                 .ForMember(dest => dest.LoanId, opt => opt.MapFrom(src => src.Id))
-                .ForMember(dest => dest.Amount, opt => opt.MapFrom(src => src.Amount.Value))
-                .ForMember(dest => dest.FundedAmount, opt => opt.MapFrom(src => src.Fundings.Sum(f => f.Amount.Value)))
+                .ForMember(dest => dest.Amount, opt => opt.MapFrom(src => src.Amount))
+                .ForMember(dest => dest.FundedAmount, opt => opt.MapFrom(src => src.Fundings.Sum(f => f.Amount)))
                 .ForMember(dest => dest.BorrowerId, opt => opt.MapFrom(src => src.BorrowerId))
                 .ForMember(dest => dest.DurationInMonths, opt => opt.MapFrom(src => src.DurationInMonths))
                 .ForMember(dest => dest.Purpose, opt => opt.MapFrom(src => src.Purpose))
@@ -30,15 +30,15 @@ namespace LoanWise.Application.Mapping
 
             CreateMap<Loan, LenderFundingDto>()
                  .ForCtorParam("LoanId", opt => opt.MapFrom(src => src.Id))
-                 .ForCtorParam("LoanAmount", opt => opt.MapFrom(src => src.Amount.Value))
-                 .ForCtorParam("TotalFunded", opt => opt.MapFrom(src => src.Fundings.Sum(f => f.Amount.Value)))
+                 .ForCtorParam("LoanAmount", opt => opt.MapFrom(src => src.Amount))
+                 .ForCtorParam("TotalFunded", opt => opt.MapFrom(src => src.Fundings.Sum(f => f.Amount)))
                  .ForCtorParam("Purpose", opt => opt.MapFrom(src => src.Purpose.ToString()))
                  .ForCtorParam("Status", opt => opt.MapFrom(src => src.Status.ToString()))
                  .ForCtorParam("AmountFundedByYou", opt => opt.MapFrom((src, ctx) =>
                  {
                      var lenderId = ctx.Items["LenderId"] as Guid?;
                      return lenderId.HasValue
-                         ? src.Fundings.Where(f => f.LenderId == lenderId.Value).Sum(f => f.Amount.Value)
+                         ? src.Fundings.Where(f => f.LenderId == lenderId.Value).Sum(f => f.Amount)
                          : 0m;
                  }));
 

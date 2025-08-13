@@ -33,7 +33,7 @@ namespace LoanWise.Application.Features.Dashboard.Queries.GetLenderPortfolio
             // Total funded by this lender
             var totalFunded = await _db.Fundings
                 .Where(f => f.LenderId == lenderId)
-                .SumAsync(f => (decimal?)f.Amount.Value, cancellationToken) ?? 0m;
+                .SumAsync(f => (decimal?)f.Amount, cancellationToken) ?? 0m;
 
             // Number of distinct loans this lender has funded
             var numberOfLoans = await _db.Fundings

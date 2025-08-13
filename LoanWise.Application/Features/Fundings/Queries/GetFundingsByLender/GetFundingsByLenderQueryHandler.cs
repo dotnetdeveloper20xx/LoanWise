@@ -33,11 +33,11 @@ namespace LoanWise.Application.Features.Fundings.Queries.GetFundingsByLender
                 .OrderByDescending(f => f.FundedOn)
                 .Select(f => new LenderFundingDto(
                     f.LoanId,                                        // LoanId (Guid)
-                    f.Loan.Amount.Value,                             // LoanAmount (decimal)
-                    f.Loan.Fundings.Sum(x => x.Amount.Value),        // TotalFunded (decimal)
+                    f.Loan.Amount,  
+                    f.Loan.Fundings.Sum(x => x.Amount),        // TotalFunded (decimal)
                     f.Loan.Purpose.ToString(),                       // Purpose (string)
                     f.Loan.Status.ToString(),                        // Status (string)
-                    f.Amount.Value                                   // AmountFundedByYou (decimal)
+                    f.Amount                                   // AmountFundedByYou (decimal)
                 ))
                 .ToListAsync(ct);
 

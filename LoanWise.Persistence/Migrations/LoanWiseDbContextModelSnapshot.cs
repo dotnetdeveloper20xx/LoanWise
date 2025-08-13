@@ -22,6 +22,50 @@ namespace LoanWise.Persistence.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("LoanWise.Domain.Entities.BorrowerRiskSnapshot", b =>
+                {
+                    b.Property<Guid>("BorrowerId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("CreditScore")
+                        .HasColumnType("int");
+
+                    b.Property<string>("FlagsJson")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<string>("KycStatus")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<DateTime>("LastScoreAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("LastVerifiedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("RiskTier")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("BorrowerId");
+
+                    b.HasIndex("KycStatus");
+
+                    b.HasIndex("LastScoreAtUtc");
+
+                    b.HasIndex("LastVerifiedAtUtc");
+
+                    b.ToTable("BorrowerRiskSnapshots");
+                });
+
             modelBuilder.Entity("LoanWise.Domain.Entities.CreditProfile", b =>
                 {
                     b.Property<Guid>("UserId")
@@ -50,6 +94,9 @@ namespace LoanWise.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<Guid>("LoanId")
                         .HasColumnType("uniqueidentifier");
 
@@ -74,6 +121,9 @@ namespace LoanWise.Persistence.Migrations
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<DateTime>("FundedOn")
                         .HasColumnType("datetime2");
@@ -135,6 +185,9 @@ namespace LoanWise.Persistence.Migrations
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<DateTime?>("ApprovedAtUtc")
                         .HasColumnType("datetime2");
@@ -386,33 +439,6 @@ namespace LoanWise.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.OwnsOne("LoanWise.Domain.ValueObjects.Money", "Amount", b1 =>
-                        {
-                            b1.Property<Guid>("EscrowTransactionId")
-                                .HasColumnType("uniqueidentifier");
-
-                            b1.Property<string>("Currency")
-                                .IsRequired()
-                                .ValueGeneratedOnAdd()
-                                .HasColumnType("nvarchar(max)")
-                                .HasDefaultValue("GBP")
-                                .HasColumnName("EscrowAmountCurrency");
-
-                            b1.Property<decimal>("Value")
-                                .HasColumnType("decimal(18,2)")
-                                .HasColumnName("EscrowAmountValue");
-
-                            b1.HasKey("EscrowTransactionId");
-
-                            b1.ToTable("EscrowTransactions");
-
-                            b1.WithOwner()
-                                .HasForeignKey("EscrowTransactionId");
-                        });
-
-                    b.Navigation("Amount")
-                        .IsRequired();
-
                     b.Navigation("Loan");
                 });
 
@@ -433,33 +459,6 @@ namespace LoanWise.Persistence.Migrations
                     b.HasOne("LoanWise.Domain.Entities.User", null)
                         .WithMany("Fundings")
                         .HasForeignKey("UserId");
-
-                    b.OwnsOne("LoanWise.Domain.ValueObjects.Money", "Amount", b1 =>
-                        {
-                            b1.Property<Guid>("FundingId")
-                                .HasColumnType("uniqueidentifier");
-
-                            b1.Property<string>("Currency")
-                                .IsRequired()
-                                .ValueGeneratedOnAdd()
-                                .HasColumnType("nvarchar(max)")
-                                .HasDefaultValue("GBP")
-                                .HasColumnName("FundingAmountCurrency");
-
-                            b1.Property<decimal>("Value")
-                                .HasColumnType("decimal(18,2)")
-                                .HasColumnName("FundingAmountValue");
-
-                            b1.HasKey("FundingId");
-
-                            b1.ToTable("Fundings");
-
-                            b1.WithOwner()
-                                .HasForeignKey("FundingId");
-                        });
-
-                    b.Navigation("Amount")
-                        .IsRequired();
 
                     b.Navigation("Lender");
 
@@ -493,33 +492,6 @@ namespace LoanWise.Persistence.Migrations
                         .WithMany("Loans")
                         .HasForeignKey("BorrowerId")
                         .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.OwnsOne("LoanWise.Domain.ValueObjects.Money", "Amount", b1 =>
-                        {
-                            b1.Property<Guid>("LoanId")
-                                .HasColumnType("uniqueidentifier");
-
-                            b1.Property<string>("Currency")
-                                .IsRequired()
-                                .ValueGeneratedOnAdd()
-                                .HasColumnType("nvarchar(max)")
-                                .HasDefaultValue("GBP")
-                                .HasColumnName("AmountCurrency");
-
-                            b1.Property<decimal>("Value")
-                                .HasColumnType("decimal(18,2)")
-                                .HasColumnName("AmountValue");
-
-                            b1.HasKey("LoanId");
-
-                            b1.ToTable("Loans");
-
-                            b1.WithOwner()
-                                .HasForeignKey("LoanId");
-                        });
-
-                    b.Navigation("Amount")
                         .IsRequired();
 
                     b.Navigation("Borrower");

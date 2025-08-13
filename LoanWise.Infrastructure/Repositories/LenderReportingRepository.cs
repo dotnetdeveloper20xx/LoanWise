@@ -27,7 +27,7 @@ namespace LoanWise.Infrastructure.Repositories
                                BorrowerName = u.FullName, // adjust to your user field
                                OccurredAtUtc = f.FundedOn,
                                Type = "Funding",
-                               Amount = -f.Amount.Value,  // negative outflow
+                               Amount = -f.Amount,  // negative outflow
                                Description = $"Funding to loan {l.Id}"
                            };
 

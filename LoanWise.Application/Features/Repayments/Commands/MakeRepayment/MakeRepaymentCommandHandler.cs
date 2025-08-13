@@ -53,7 +53,7 @@ namespace LoanWise.Application.Features.Repayments.Commands.MakeRepayment
             repayment.MarkAsPaid(paidOn, loan.BorrowerId);
 
             // ---- Create lender repayment allocations ----
-            var totalFunded = loan.Fundings.Sum(f => f.Amount.Value);
+            var totalFunded = loan.Fundings.Sum(f => f.Amount);
             if (totalFunded > 0)
             {
                 var lenderGroups = loan.Fundings
@@ -61,7 +61,7 @@ namespace LoanWise.Application.Features.Repayments.Commands.MakeRepayment
                     .Select(g => new
                     {
                         LenderId = g.Key,
-                        Funded = g.Sum(f => f.Amount.Value)
+                        Funded = g.Sum(f => f.Amount)
                     })
                     .ToList();
 

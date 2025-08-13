@@ -82,53 +82,11 @@ namespace LoanWise.Persistence.Context
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
-
-            // Loan.Amount (Money VO)
-            modelBuilder.Entity<Loan>(builder =>
-            {
-                builder.OwnsOne(l => l.Amount, amt =>
-                {
-                    amt.Property(a => a.Value)
-                       .HasColumnName("AmountValue")
-                       .IsRequired();
-
-                    amt.Property(a => a.Currency)
-                       .HasColumnName("AmountCurrency")
-                       .HasDefaultValue("GBP")
-                       .IsRequired();
-                });
-            });
-
-            // EscrowTransaction.Amount (Money VO)
-            modelBuilder.Entity<EscrowTransaction>(builder =>
-            {
-                builder.OwnsOne(e => e.Amount, amt =>
-                {
-                    amt.Property(a => a.Value)
-                       .HasColumnName("EscrowAmountValue")
-                       .IsRequired();
-
-                    amt.Property(a => a.Currency)
-                       .HasColumnName("EscrowAmountCurrency")
-                       .HasDefaultValue("GBP")
-                       .IsRequired();
-                });
-            });
+             
 
             // Funding.Amount (Money VO) + prevent cascade delete to Lender
             modelBuilder.Entity<Funding>(builder =>
-            {
-                builder.OwnsOne(f => f.Amount, amt =>
-                {
-                    amt.Property(a => a.Value)
-                       .HasColumnName("FundingAmountValue")
-                       .IsRequired();
-
-                    amt.Property(a => a.Currency)
-                       .HasColumnName("FundingAmountCurrency")
-                       .HasDefaultValue("GBP")
-                       .IsRequired();
-                });
+            {               
 
                 builder
                     .HasOne(f => f.Lender)

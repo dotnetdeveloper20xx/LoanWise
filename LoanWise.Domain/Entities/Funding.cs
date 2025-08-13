@@ -36,7 +36,7 @@ namespace LoanWise.Domain.Entities
         /// <summary>
         /// Amount of money contributed by the lender.
         /// </summary>
-        public Money Amount { get; private set; }
+        public decimal Amount { get; private set; }
 
         /// <summary>
         /// Date and time when the funding was made.
@@ -56,9 +56,9 @@ namespace LoanWise.Domain.Entities
         /// <param name="loanId">Loan ID being funded.</param>
         /// <param name="amount">Funding amount.</param>
         /// <param name="fundedOn">Timestamp of funding.</param>
-        public Funding(Guid id, Guid lenderId, Guid loanId, Money amount, DateTime fundedOn)
+        public Funding(Guid id, Guid lenderId, Guid loanId, decimal amount, DateTime fundedOn)
         {
-            if (amount.Value <= 0)
+            if (amount <= 0)
                 throw new ArgumentException("Funding amount must be greater than zero.", nameof(amount));
 
             Id = id;
