@@ -1075,122 +1075,478 @@ LoanWise.Application
 
 ---
 
-## ✅ Benefits
 
-- Centralized control of application flow
-- Consistent logging, validation, error handling
-- Easily extendable: add caching, telemetry, retries
-- Maintains separation of concerns
+# LoanWise API Guide for frontend developers
 
----
+## Overview
+This guide lists each controller, its methods, and example request/response JSON for frontend developers integrating with the LoanWise API. All responses follow the ApiResponse<T> pattern:
 
-## 🚀 Next Steps
-
-1. Scaffold pipeline behaviors in `/Behaviors`
-2. Register them in `AddApplication()`
-3. Build `ApplyLoanCommand` end-to-end with validator + handler
-4. Add logging and performance monitoring via behaviors
-5. (Optional) Add caching to query handlers
+```json
+{
+  "success": true,
+  "message": "optional message",
+  "data": { /* payload */ }
+}
+```
 
 ---
 
+## AuthController (`/api/auth`) — Public
+**Purpose:** register, login, and refresh tokens.
 
+### POST `/api/auth/register`
+**Request**
+```json
+{
+  "fullName": "Demo User",
+  "email": "demo@example.com",
+  "password": "demo123",
+  "role": "Borrower"
+}
+```
+**Response**
+```json
+{
+  "success": true,
+  "message": "Registered",
+  "data": {
+    "id": "b1a6c8e1-3e5d-4a57-8e6d-78d1b4c0a111",
+    "fullName": "Demo User",
+    "email": "demo@example.com",
+    "role": "Borrower"
+  }
+}
+```
 
-# LoanWise Feature Summary – Implemented Flows Overview
+### POST `/api/auth/login`
+**Request**
+```json
+{ "email": "demo@example.com", "password": "demo123" }
+```
+**Response**
+```json
+{
+  "success": true,
+  "message": "Logged in",
+  "data": {
+    "token": "JWT-TOKEN",
+    "expiresIn": 3600
+  }
+}
+```
 
-The LoanWise system follows **CQRS + Clean Architecture** to manage the full lifecycle of a peer-to-peer lending system. Below is a summary of the major backend features we have implemented so far, including their purpose and flow.
-
----
-
-## ✅ 1. ApplyLoanCommand – Borrower Loan Application
-
-### 🧾 Flow Overview
-- A borrower applies for a loan via `POST /api/loans/apply`.
-- The request is handled via `ApplyLoanCommand` (MediatR).
-- Validation ensures amount, duration, and borrower ID are valid.
-- Handler persists a new `Loan` entity using `ILoanRepository`.
-- Returns an `ApiResponse<Guid>` with the loan ID.
-
-### ✅ Benefits
-- Clean input validation
-- Decoupled persistence logic
-- Supports pipeline behaviors (logging, timing)
-
----
-
-## ✅ 2. FundLoanCommand – Lender Funds a Loan
-
-### 🧾 Flow Overview
-- A lender sends a funding request to `/api/fundings/{loanId}`.
-- The request is transformed into `FundLoanCommand`.
-- Validation checks loan ID, lender ID, and amount.
-- The handler checks existing funding and prevents overfunding.
-- A `Funding` record is created and persisted.
-- If the loan is fully funded, status is updated to `LoanStatus.Funded`.
-
-### ✅ Benefits
-- Business rules enforced centrally
-- Automatically updates loan status
-- Supports event-driven evolution
-
----
-
-## ✅ 3. GetOpenLoansQuery – Lender Browses Fundable Loans
-
-### 🧾 Flow Overview
-- API endpoint: `GET /api/loans/open`
-- Returns loans with `LoanStatus.Approved` and not yet fully funded.
-- Uses `LoanSummaryDto` for projection.
-- AutoMapper is used to map from `Loan` entity.
-
-### ✅ Benefits
-- Cleanly separates query logic and projection
-- Reusable projection DTOs
-- Ideal for public loan browsing interface
-
----
-
-## ✅ 4. GetLoansByBorrowerQuery – Borrower Views Their Loans
-
-### 🧾 Flow Overview
-- API endpoint: `GET /api/loans/my?borrowerId={id}`
-- Fetches all loans tied to the borrower
-- Projects to `BorrowerLoanDto` via AutoMapper
-- Includes status, amount, duration, and funding progress
-
-### ✅ Benefits
-- Personal dashboard support
-- Respects domain boundaries (no overexposure)
-- Easily extendable for borrower filters
+### POST `/api/auth/refresh`
+**Request**
+```json
+{
+  "refreshToken": "your-refresh-token"
+}
+```
+**Response**
+```json
+{
+  "success": true,
+  "message": "Refresh successful",
+  "data": {
+    "token": "NEW-JWT",
+    "expiresIn": 3600,
+    "refreshToken": "rotated-refresh-token"
+  }
+}
+```
 
 ---
 
-## ✅ 5. GetFundingsByLenderQuery – Lender Views Contributions
+## UsersController (`/api/users`) — Authenticated
+**Purpose:** current user profile.
 
-### 🧾 Flow Overview
-- API endpoint: `GET /api/fundings/my?lenderId={id}`
-- Loads all loans with contributions by the lender
-- Uses AutoMapper + AfterMap to calculate `AmountFundedByYou`
-- Returns `LenderFundingDto` with funding status and purpose
-
-### ✅ Benefits
-- Fully encapsulated mapping with AutoMapper
-- Minimal handler logic (clean separation)
-- Supports financial overview per lender
+### GET `/api/users/me`
+**Request**: _none_ (JWT required)  
+**Response**
+```json
+{
+  "success": true,
+  "message": null,
+  "data": {
+    "id": "b1a6c8e1-3e5d-4a57-8e6d-78d1b4c0a111",
+    "fullName": "Demo User",
+    "email": "demo@example.com",
+    "role": "Borrower"
+  }
+}
+```
 
 ---
 
-## 🏁 Summary
+## LoanController (`/api/loans`) — Mixed Roles
+**Purpose:** core loan lifecycle and dashboards/stats.
 
-These implemented features provide the foundation for:
-- Secure lending lifecycle workflows
-- Clean projection and transformation logic
-- Clear domain enforcement and extensibility
+### POST `/api/loans/apply` (Borrower)
+**Request**
+```json
+{
+  "amount": 10000,
+  "durationInMonths": 12,
+  "purpose": "HomeImprovement",
+  "description": "Paint & flooring",
+  "monthlyIncome": 3500
+}
+```
+**Response**
+```json
+{ "success": true, "message": "Loan created", "data": { "id": "7c2f..." } }
+```
 
-They are aligned with:
-- ✅ Clean Architecture
-- ✅ MediatR-based CQRS
-- ✅ AutoMapper for mapping
-- ✅ FluentValidation + pipeline behaviors
+### GET `/api/loans/open` (Lender)
+**Response**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "e8f9...",
+      "borrowerName": "Alice",
+      "amount": 5000,
+      "durationInMonths": 12,
+      "status": "Approved",
+      "riskLevel": "Medium",
+      "amountFunded": 1500,
+      "createdAtUtc": "2025-08-01T10:20:00Z"
+    }
+  ]
+}
+```
+
+### GET `/api/loans/my` (Borrower)
+**Response**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "e8f9...",
+      "amount": 10000,
+      "durationInMonths": 12,
+      "status": "Funded",
+      "amountFunded": 7500,
+      "riskLevel": "Low",
+      "createdAtUtc": "2025-08-01T10:20:00Z"
+    }
+  ]
+}
+```
+
+### POST `/api/loans/{loanId}/disburse` (Admin)
+**Response**
+```json
+{
+  "success": true,
+  "message": "Loan disbursed",
+  "data": { "loanId": "e8f9...", "status": "Disbursed" }
+}
+```
+
+### GET `/api/loans/{loanId}/repayments` (Borrower)
+**Response**
+```json
+{
+  "success": true,
+  "data": [
+    { "id": "r1", "dueDate": "2025-09-01T00:00:00Z", "amount": 900.0, "isPaid": false, "paidOn": null }
+  ]
+}
+```
+
+### GET `/api/loans/borrowers/dashboard` (Borrower)
+**Response**
+```json
+{
+  "success": true,
+  "data": {
+    "totalLoans": 2,
+    "totalDisbursed": 10000,
+    "upcomingRepayment": { "dueDate": "2025-09-01T00:00:00Z", "amount": 900.0 },
+    "outstandingBalance": 8100.0
+  }
+}
+```
+
+### GET `/api/loans/stats` (Admin)
+**Response**
+```json
+{
+  "success": true,
+  "data": {
+    "totalLoans": 20,
+    "byStatus": { "Approved": 8, "Funded": 6, "Disbursed": 4, "Overdue": 2 }
+  }
+}
+```
+
+### GET `/api/loans/borrowers/history` (Borrower)
+**Response**
+```json
+{ "success": true, "data": [ { "id": "7c2f...", "amount": 5000, "status": "Disbursed" } ] }
+```
+
+---
+
+## FundingController (`/api/fundings`) — Lender
+**Purpose:** lender funds a loan; view self fundings.
+
+### POST `/api/fundings/{loanId}`
+**Request**
+```json
+{ "amount": 1000 }
+```
+**Response**
+```json
+{ "success": true, "message": "Funding recorded", "data": { "loanId": "e8f9...", "amountFunded": 3500 } }
+```
+
+### GET `/api/fundings/my`
+**Response**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "loanId": "e8f9...",
+      "loanRef": "LW-2025-00123",
+      "amountFundedByYou": 1500,
+      "purpose": "HomeImprovement",
+      "status": "Funded"
+    }
+  ]
+}
+```
+
+---
+
+## LenderController (`/api/lenders`) — Lender/Admin
+**Purpose:** portfolio summary and transaction history.
+
+### GET `/api/lenders/portfolio`
+**Response**
+```json
+{
+  "success": true,
+  "data": { "totalFunded": 3500, "fundedLoans": 2, "openLoans": 5 }
+}
+```
+
+### GET `/api/lenders/transactions`
+**Response**
+```json
+{
+  "success": true,
+  "data": {
+    "total": 42,
+    "items": [
+      {
+        "occurredAtUtc": "2025-07-14T09:00:00Z",
+        "type": "Funding",
+        "loanId": "e8f9...",
+        "loanRef": "LW-2025-00123",
+        "borrowerName": "Alice",
+        "amount": 1000,
+        "description": "Initial contribution"
+      }
+    ]
+  }
+}
+```
+
+---
+
+## LenderExportsController (`/api/lenders`) — Lender/Admin
+**Purpose:** export transactions (CSV/XLSX).
+
+### GET `/api/lenders/transactions/export`
+**Response**: File (CSV or Excel)
+
+---
+
+## RepaymentController (`/api/repayments`) — Borrower
+**Purpose:** mark an installment as paid.
+
+### POST `/api/repayments/{repaymentId}/pay`
+**Response**
+```json
+{
+  "success": true,
+  "message": "Repayment marked as paid",
+  "data": { "repaymentId": "a9c3...", "paidOn": "2025-08-08T09:00:00Z" }
+}
+```
+
+---
+
+## NotificationsController (`/api/notifications`) — Authenticated
+**Purpose:** list & acknowledge notifications.
+
+### GET `/api/notifications`
+**Response**
+```json
+{
+  "success": true,
+  "data": [
+    { "id": "n1", "type": "LoanApproved", "title": "Loan approved", "createdAtUtc": "2025-08-01T09:00:00Z", "isRead": false }
+  ]
+}
+```
+
+### PUT `/api/notifications/{id}/read`
+**Response**
+```json
+{ "success": true, "message": "Notification marked as read", "data": true }
+```
+
+---
+
+## AdminController (`/api/admin`) — Admin
+**Purpose:** loan approvals, user admin, overdue checks.
+
+### POST `/api/admin/loans/{loanId}/approve`
+**Response**
+```json
+{ "success": true, "message": "Loan approved", "data": "e8f9..." }
+```
+
+### POST `/api/admin/loans/{loanId}/reject`
+**Request**
+```json
+{ "reason": "Insufficient documentation" }
+```
+**Response**
+```json
+{ "success": true, "message": "Loan rejected", "data": "e8f9..." }
+```
+
+### POST `/api/admin/repayments/check-overdue`
+**Response**
+```json
+{ "success": true, "message": "Overdues checked", "data": { "overdueCount": 3, "updated": 3 } }
+```
+
+### GET `/api/admin/users`
+**Response**
+```json
+{
+  "success": true,
+  "data": {
+    "total": 120,
+    "items": [
+      { "id": "u1", "fullName": "Alice", "email": "alice@ex.com", "role": "Borrower", "isActive": true }
+    ]
+  }
+}
+```
+
+### PUT `/api/admin/users/{id}/status`
+**Request**
+```json
+{ "isActive": true }
+```
+**Response**
+```json
+{ "success": true, "message": "User status updated", "data": true }
+```
+
+---
+
+## AdminReportsController (`/api/admin/reports`) — Admin
+**Purpose:** high‑level reports.
+
+### GET `/api/admin/reports/loans`
+**Response**
+```json
+{ "success": true, "data": [ { "loanId": "e8f9...", "status": "Disbursed", "amount": 10000 } ] }
+```
+
+### GET `/api/admin/reports/repayments`
+**Response**
+```json
+{ "success": true, "data": [ { "repaymentId": "r1", "loanId": "e8f9...", "isOverdue": false } ] }
+```
+
+### GET `/api/admin/reports/fundings`
+**Response**
+```json
+{ "success": true, "data": [ { "loanId": "e8f9...", "totalFunded": 3500, "lenders": 2 } ] }
+```
+
+---
+
+## BorrowersRiskController (`/api`) — Mixed
+**Purpose:** borrower risk summary, admin KYC & lists.
+
+### GET `/api/borrowers/{borrowerId}/risk-summary`
+**Response**
+```json
+{
+  "success": true,
+  "data": {
+    "borrowerId": "b1a6...",
+    "riskScore": 712,
+    "riskLevel": "Medium",
+    "lastScoredAtUtc": "2025-08-01T12:00:00Z"
+  }
+}
+```
+
+### POST `/api/admin/kyc/{borrowerId}/verify`
+**Response**
+```json
+{ "success": true, "message": "KYC verified", "data": "Verified" }
+```
+
+### GET `/api/admin/borrowers/by-kyc?status=Verified,Pending`
+**Response**
+```json
+{
+  "success": true,
+  "data": {
+    "total": 42,
+    "items": [
+      { "borrowerId": "b1a6...", "name": "Alice", "kycStatus": "Verified", "riskScore": 712, "verifiedAtUtc": "2025-08-02T10:00:00Z" }
+    ]
+  }
+}
+```
+
+---
+
+## BorrowersDocumentsController (`/api/borrowers`) — Borrower/Admin
+**Purpose:** PDF exports.
+
+### GET `/api/borrowers/loans/{loanId}/repayment-plan.pdf`
+**Response**: PDF file
+
+### GET `/api/borrowers/loans/{loanId}/agreement.pdf`
+**Response**: PDF file
+
+---
+
+## MetadataController (`/api/metadata`) — Public
+**Purpose:** enum lists for dropdowns.
+
+### GET `/api/metadata/loan-statuses`
+**Response**
+```json
+{ "success": true, "data": [ { "value": "Approved", "label": "Approved" } ] }
+```
+
+### GET `/api/metadata/loan-purposes`
+**Response**
+```json
+{ "success": true, "data": [ { "value": "HomeImprovement", "label": "Home Improvement" } ] }
+```
+
+### GET `/api/metadata/risk-levels`
+**Response**
+```json
+{ "success": true, "data": [ { "value": "Low", "label": "Low" } ] }
+```
 
 
