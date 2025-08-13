@@ -25,7 +25,7 @@ namespace LoanWise.Api.Controllers
     [Route("api/auth")]
     [AllowAnonymous] // All actions below are public; secure others explicitly if needed
     [Produces("application/json")]
-    [ApiExplorerSettings(GroupName = "Auth")]
+    [Tags("Auth")]
     [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
     public sealed class AuthController : ControllerBase
     {

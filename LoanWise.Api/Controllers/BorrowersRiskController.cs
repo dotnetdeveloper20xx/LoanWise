@@ -77,7 +77,7 @@ public sealed class BorrowersRiskController : ControllerBase
     /// <param name="ct">Cancellation token.</param>
     [HttpPost("admin/kyc/{borrowerId:guid}/verify")]
     [Authorize(Roles = "Admin")]
-    [ApiExplorerSettings(GroupName = "Admin")]
+    [Tags("Admin")]
     [ProducesResponseType(typeof(ApiResponse<string>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<string>), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> VerifyKyc(Guid borrowerId, CancellationToken ct = default)
@@ -129,7 +129,7 @@ public sealed class BorrowersRiskController : ControllerBase
     /// </remarks>
     [HttpGet("admin/borrowers/by-kyc")]
     [Authorize(Roles = "Admin")]
-    [ApiExplorerSettings(GroupName = "Admin")]
+    [Tags("Admin")]
     [ProducesResponseType(typeof(ApiResponse<BorrowerKycListResult>), StatusCodes.Status200OK)]
     public async Task<IActionResult> ListByKyc([FromQuery] ListByKycQuery q, CancellationToken ct = default)
     {

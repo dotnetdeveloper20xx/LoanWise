@@ -23,7 +23,7 @@ namespace LoanWise.Api.Controllers
     [Route("api/notifications")]
     [Authorize]
     [Produces("application/json")]
-    [ApiExplorerSettings(GroupName = "Notifications")]
+    [Tags("Notifications")]
     [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
     public sealed class NotificationsController : ControllerBase
     {

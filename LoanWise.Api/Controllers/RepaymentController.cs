@@ -21,7 +21,7 @@ namespace LoanWise.Api.Controllers
     [Route("api/repayments")]
     [Authorize(Roles = "Borrower")] // Borrowers only; handler should verify ownership of repayment
     [Produces("application/json")]
-    [ApiExplorerSettings(GroupName = "Repayments")]
+    [Tags("Repayments")]
     [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
     public sealed class RepaymentController : ControllerBase
     {

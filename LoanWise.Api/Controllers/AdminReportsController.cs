@@ -24,7 +24,7 @@ namespace LoanWise.Api.Controllers
     [Route("api/admin/reports")]
     [Authorize(Roles = "Admin")]
     [Produces("application/json")]
-    [ApiExplorerSettings(GroupName = "Admin")]
+    [Tags("Admin")]
     [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)] // Reports are sensitive; don't cache by default
     public sealed class AdminReportsController : ControllerBase
     {

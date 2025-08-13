@@ -22,7 +22,7 @@ namespace LoanWise.Api.Controllers
     [ApiController]
     [Route("api/users")]
     [Produces("application/json")]
-    [ApiExplorerSettings(GroupName = "Users")]
+    [Tags("Users")]
     public sealed class UsersController : ControllerBase
     {
         private readonly IMediator _mediator;

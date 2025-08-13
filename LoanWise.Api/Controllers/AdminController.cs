@@ -27,8 +27,8 @@ namespace LoanWise.Api.Controllers
     [Authorize(Roles = "Admin")] // Admin-only surface area
     [ApiController]
     [Route("api/admin")]
-    [Produces("application/json")]
-    [ApiExplorerSettings(GroupName = "Admin")]
+    [Produces("application/json")]   
+    [Tags("Admin")]
     public sealed class AdminController : ControllerBase
     {
         private readonly IMediator _mediator;

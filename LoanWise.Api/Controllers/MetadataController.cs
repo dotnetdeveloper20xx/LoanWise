@@ -23,7 +23,7 @@ namespace LoanWise.Api.Controllers
     [Route("api/metadata")]
     [AllowAnonymous] // Publicly accessible — used by pre-login forms
     [Produces("application/json")]
-    [ApiExplorerSettings(GroupName = "Metadata")]
+    
     [ResponseCache(Duration = 300, Location = ResponseCacheLocation.Any, NoStore = false)]
     public sealed class MetadataController : ControllerBase
     {
