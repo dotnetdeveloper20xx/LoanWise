@@ -1550,3 +1550,122 @@ This guide lists each controller, its methods, and example request/response JSON
 ```
 
 
+# LoanWise – End-to-End API Testing Workflow
+
+This plan outlines the recommended order for testing the LoanWise backend, covering Borrower, Lender, and Admin flows.
+
+---
+
+## 1. Auth & Identity
+
+### **POST** `/api/Auth/register`
+Create a Borrower user (and a Lender user in a second run).
+
+### **POST** `/api/Auth/login`
+Capture `access_token`.
+
+> Save token to a Postman variable:
+```javascript
+pm.environment.set("jwt", pm.response.json().data.token); // adjust JSON path if needed
+```
+
+### **GET** `/api/users/me` *(Auth: Bearer)*
+Sanity-check identity & roles.
+
+---
+
+## 2. Loans – Discovery & Application (Borrower flow)
+
+### **GET** `/api/loans/open` *(Public or Auth)*
+Confirm open products/loan templates exist.
+
+### **POST** `/api/loans/apply` *(Role: Borrower)*
+Apply for a loan.
+
+> **Important:** borrower ID should come from JWT on the server (not in the body).  
+Ensure your command handler reads from `IUserContext` and ignores any client-sent `borrowerId`.
+
+> Save returned `loanId`:
+```javascript
+pm.environment.set("loanId", pm.response.json().data.loanId || pm.response.json().data);
+```
+
+---
+
+## 3. Funding (Lender flow)
+
+### **POST** `/api/Auth/login` *(as Lender)*
+Set `jwt` again (overwrites previous).
+
+### **POST** `/api/fundings/{{loanId}}` *(Role: Lender)*
+Fund the loan (partial or full).
+
+> Save any `fundingId` if returned.
+
+### **GET** `/api/lenders/portfolio` *(Role: Lender)*
+Verify funded positions include `loanId`.
+
+---
+
+## 4. Loan Administration & Disbursement
+
+### **POST** `/api/loans/{{loanId}}/disburse` *(Role: Admin or appropriate)*
+Disburse principal to borrower.
+
+Verify loan status transitions (e.g., `Approved` → `Active` / `Disbursed`).
+
+### **GET** `/api/loans/{{loanId}}/repayments` *(Auth)*
+Confirm the schedule generated post-disbursement.
+
+> Save a `repaymentId` of the first unpaid:
+```javascript
+const plan = pm.response.json().data;
+const next = plan.find(x => !x.isPaid);
+if (next) pm.environment.set("repaymentId", next.id);
+```
+
+---
+
+## 5. Repayment Flow (Borrower)
+
+### **POST** `/api/Auth/login` *(as Borrower)*
+Refresh `jwt`.
+
+### **POST** `/api/repayments/{{repaymentId}}/pay` *(Role: Borrower)*
+Make a repayment.
+
+Re-GET the schedule to see updated `isPaid` and next due.
+
+---
+
+## 6. Dashboards & Stats
+
+### **GET** `/api/loans/borrowers/dashboard` *(Role: Borrower)*
+Verify balances, upcoming due, history.
+
+### **GET** `/api/loans/my` *(Role: Borrower)*
+Confirm borrower’s own loans list includes updated status.
+
+### **GET** `/api/loans/loans/stats` *(Admin/Ops or Public depending on design)*
+Sanity-check system metrics (totals, active loans, arrears).
+
+---
+
+## 7. Admin Ops
+
+### **POST** `/api/admin/repayments/check-overdue` *(Role: Admin)*
+Run the overdue process.
+
+Validate response count; optionally recheck borrower dashboard/repayment list for flags.
+
+---
+
+## Test Flow Summary
+
+If your API names or routes differ slightly, keep the order:
+
+```
+register → login → profile → discover → apply → fund → disburse → schedule → pay → dashboards → admin checks
+```
+
+
