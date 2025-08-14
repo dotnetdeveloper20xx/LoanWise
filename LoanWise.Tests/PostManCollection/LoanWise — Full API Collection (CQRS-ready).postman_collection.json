@@ -1,0 +1,914 @@
+{
+	"info": {
+		"_postman_id": "a19f2e81-2e0d-4b27-8155-4bfc9dc605ef",
+		"name": "LoanWise — Full API Collection (CQRS-ready)",
+		"description": "Comprehensive Postman collection for testing all LoanWise endpoints (Auth, Users, Loans, Funding, Repayments, Admin, Reports, Metadata, Notifications). Uses nested command DTOs where controllers expect them and auto-captures auth/ids for chained calls.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "47013564",
+		"_collection_link": "https://dotnetdeveloper20xx-2070467.postman.co/workspace/Faz-Ahmed's-Workspace~a15e96bf-1d02-470e-8a21-38691989b00f/collection/47013564-a19f2e81-2e0d-4b27-8155-4bfc9dc605ef?action=share&source=collection_link&creator=47013564"
+	},
+	"item": [
+		{
+			"name": "Auth",
+			"item": [
+				{
+					"name": "Register (nested: registration)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"registration\": {\n    \"fullName\": \"Demo Borrower\",\n    \"email\": \"demo.borrower@example.com\",\n    \"password\": \"Passw0rd!\",\n    \"role\": \"Borrower\"\n  }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/auth/register",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"register"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Login (nested: login) → captures token",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status is 200', () => pm.response.to.have.status(200));",
+									"const json = pm.response.json();",
+									"// ApiResponse envelope expected; adjust if different",
+									"const token = json?.data?.token || json?.token;",
+									"pm.test('Token present', () => pm.expect(!!token).to.be.true);",
+									"if (token) {",
+									"  pm.collectionVariables.set('auth_token', token);",
+									"  console.log('Auth token set.');",
+									"} else { console.warn('No token found in response.'); }"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"login\": {\n    \"email\": \"demo.borrower@example.com\",\n    \"password\": \"Passw0rd!\"\n  }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/auth/login",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"login"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Refresh Token",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"refreshToken\": \"REPLACE_IF_YOU_USE_REFRESH_TOKENS\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/auth/refresh",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"refresh"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Users",
+			"item": [
+				{
+					"name": "Get Current User (/api/users/me)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/users/me",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"users",
+								"me"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Loans",
+			"item": [
+				{
+					"name": "Apply Loan (Borrower) (nested: application) → sets {{loanId}}",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"const json = pm.response.json();",
+									"const id = json?.data?.id || json?.id;",
+									"if (id) { pm.collectionVariables.set('loanId', id); console.log('loanId set from Apply:', id); }"
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"application\": {\n    \"amount\": 10000,\n    \"durationInMonths\": 12,\n    \"purpose\": \"HomeImprovement\",\n    \"description\": \"Paint & flooring\",\n    \"monthlyIncome\": 3500\n  }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/loans/apply",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"loans",
+								"apply"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Open Loans (Lender)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/loans/open",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"loans",
+								"open"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get My Loans (Borrower) → sets {{loanId}} from first item",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"  const json = pm.response.json();",
+									"  const list = json?.data || [];",
+									"  if (Array.isArray(list) && list.length && list[0].id) {",
+									"    pm.collectionVariables.set('loanId', list[0].id);",
+									"    console.log('loanId set from My Loans:', list[0].id);",
+									"  }",
+									"}"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/loans/my",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"loans",
+								"my"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Disburse Loan (Admin)",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/loans/{{loanId}}/disburse",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"loans",
+								"{{loanId}}",
+								"disburse"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Repayments by Loan → sets {{repaymentId}}",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"const json = pm.response.json();",
+									"const first = Array.isArray(json?.data) ? json.data[0] : null;",
+									"if (first?.id) { pm.collectionVariables.set('repaymentId', first.id); console.log('repaymentId set:', first.id); }"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/loans/{{loanId}}/repayments",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"loans",
+								"{{loanId}}",
+								"repayments"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Borrower Dashboard",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/loans/borrowers/dashboard",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"loans",
+								"borrowers",
+								"dashboard"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Admin Loan Stats",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/loans/stats",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"loans",
+								"stats"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Borrower Loan History",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/loans/borrowers/history?page=1&pageSize=25",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"loans",
+								"borrowers",
+								"history"
+							],
+							"query": [
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "pageSize",
+									"value": "25"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Funding",
+			"item": [
+				{
+					"name": "Fund Loan (Lender) (nested: funding)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"funding\": {\n    \"amount\": 1000\n  }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/fundings/{{loanId}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"fundings",
+								"{{loanId}}"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get My Fundings (Lender)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/fundings/my",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"fundings",
+								"my"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Repayments",
+			"item": [
+				{
+					"name": "Make Repayment (Borrower)",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/repayments/{{repaymentId}}/pay",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"repayments",
+								"{{repaymentId}}",
+								"pay"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Admin",
+			"item": [
+				{
+					"name": "Approve Loan",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/admin/loans/{{loanId}}/approve",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"admin",
+								"loans",
+								"{{loanId}}",
+								"approve"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Reject Loan (with reason)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"reason\": \"Insufficient documentation\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/admin/loans/{{loanId}}/reject",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"admin",
+								"loans",
+								"{{loanId}}",
+								"reject"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Check Overdue Repayments",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/admin/repayments/check-overdue",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"admin",
+								"repayments",
+								"check-overdue"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Users (paged/filterable)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/admin/users?page=1&pageSize=25&search=&sortBy=createdAt&sortDir=desc",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"admin",
+								"users"
+							],
+							"query": [
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "pageSize",
+									"value": "25"
+								},
+								{
+									"key": "search",
+									"value": ""
+								},
+								{
+									"key": "sortBy",
+									"value": "createdAt"
+								},
+								{
+									"key": "sortDir",
+									"value": "desc"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update User Status",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"isActive\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/admin/users/{{id}}/status",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"admin",
+								"users",
+								"{{id}}",
+								"status"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Borrowers Risk & Docs",
+			"item": [
+				{
+					"name": "Borrower Risk Summary",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/borrowers/{{borrowerId}}/risk-summary",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"borrowers",
+								"{{borrowerId}}",
+								"risk-summary"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Download Repayment Plan PDF",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/borrowers/loans/{{loanId}}/repayment-plan.pdf",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"borrowers",
+								"loans",
+								"{{loanId}}",
+								"repayment-plan.pdf"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Download Loan Agreement PDF",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/borrowers/loans/{{loanId}}/agreement.pdf",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"borrowers",
+								"loans",
+								"{{loanId}}",
+								"agreement.pdf"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Lenders",
+			"item": [
+				{
+					"name": "Portfolio",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/lenders/portfolio",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"lenders",
+								"portfolio"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Transactions",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/lenders/transactions?from=&to=&loanId=&borrowerId=&page=1&pageSize=25",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"lenders",
+								"transactions"
+							],
+							"query": [
+								{
+									"key": "from",
+									"value": ""
+								},
+								{
+									"key": "to",
+									"value": ""
+								},
+								{
+									"key": "loanId",
+									"value": ""
+								},
+								{
+									"key": "borrowerId",
+									"value": ""
+								},
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "pageSize",
+									"value": "25"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Lender Exports",
+			"item": [
+				{
+					"name": "Export Transactions (CSV/XLSX)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/lenders/transactions/export?from=2025-01-01&to=2025-08-01&format=csv",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"lenders",
+								"transactions",
+								"export"
+							],
+							"query": [
+								{
+									"key": "from",
+									"value": "2025-01-01"
+								},
+								{
+									"key": "to",
+									"value": "2025-08-01"
+								},
+								{
+									"key": "format",
+									"value": "csv"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Notifications",
+			"item": [
+				{
+					"name": "List My Notifications",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/notifications",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"notifications"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Mark Notification as Read",
+					"request": {
+						"method": "PUT",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/notifications/{{id}}/read",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"notifications",
+								"{{id}}",
+								"read"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Metadata (Public)",
+			"item": [
+				{
+					"name": "Loan Statuses",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/metadata/loan-statuses",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"metadata",
+								"loan-statuses"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Loan Purposes",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/metadata/loan-purposes",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"metadata",
+								"loan-purposes"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Risk Levels",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/metadata/risk-levels",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"metadata",
+								"risk-levels"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "{{auth_token}}",
+				"type": "string"
+			}
+		]
+	},
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"// Attach Authorization header automatically if auth_token is set",
+					"const t = pm.collectionVariables.get('auth_token');",
+					"if (t) { pm.request.headers.upsert({ key: 'Authorization', value: 'Bearer ' + t }); }"
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "https://localhost:7000"
+		},
+		{
+			"key": "auth_token",
+			"value": ""
+		},
+		{
+			"key": "loanId",
+			"value": ""
+		},
+		{
+			"key": "repaymentId",
+			"value": ""
+		}
+	]
+}
