@@ -39,7 +39,10 @@ namespace LoanWise.Application.Common.Interfaces
 
         /// <summary>Saves changes if the repository uses a Unit of Work pattern.</summary>
         Task SaveChangesAsync(CancellationToken cancellationToken);
-              
+           
+        Task<Loan?> GetByIdWithRepaymentsAsync(Guid id, CancellationToken ct);
+
+
 
 
     }

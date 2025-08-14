@@ -100,5 +100,12 @@ namespace LoanWise.Infrastructure.Repositories
                 .ToListAsync(cancellationToken);
         }
       
+        public async Task<Loan?> GetByIdWithRepaymentsAsync(Guid id, CancellationToken ct)
+        {
+            return await _context.Loans
+                .Include(l => l.Repayments)
+                .FirstOrDefaultAsync(l => l.Id == id, ct);
+        }
+
     }
 }
