@@ -17,12 +17,10 @@ namespace LoanWise.Application.Features.Loans.Queries.GetOpenLoans
             _mapper = mapper;
         }
 
-        public async Task<ApiResponse<List<LoanSummaryDto>>> Handle(GetOpenLoansQuery request, CancellationToken cancellationToken)
+        public async Task<ApiResponse<List<LoanSummaryDto>>> Handle(GetOpenLoansQuery request, CancellationToken ct)
         {
-            var openLoans = await _loanRepository.GetOpenLoansAsync(cancellationToken);
-
-            var result = _mapper.Map<List<LoanSummaryDto>>(openLoans);
-
+            var openLoans = await _loanRepository.GetOpenLoansAsync(ct);
+            var result = _mapper.Map<List<LoanSummaryDto>>(openLoans);   
             return ApiResponse<List<LoanSummaryDto>>.SuccessResult(result);
         }
     }

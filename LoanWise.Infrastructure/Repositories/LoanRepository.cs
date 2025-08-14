@@ -44,18 +44,18 @@ namespace LoanWise.Infrastructure.Repositories
                 .FirstOrDefaultAsync(l => l.Id == loanId, cancellationToken);
         }
 
-        public async Task<IReadOnlyList<Loan>> GetOpenLoansAsync(CancellationToken cancellationToken)
+
+        public async Task<IReadOnlyList<Loan>> GetOpenLoansAsync(CancellationToken ct)
         {
-            // Not fully funded AND Approved.
-            // Use DefaultIfEmpty(0) to avoid NULL SUM on empty collections.
             return await _context.Loans
-                .Where(l =>
-                    l.Status == LoanStatus.Approved &&
-                    l.Fundings.Select(f => f.Amount).DefaultIfEmpty(0m).Sum() < l.Amount)
-                .Include(l => l.Borrower)
                 .AsNoTracking()
-                .ToListAsync(cancellationToken);
+                .Include(l => l.Fundings) // so mapping can use l.Fundings.Sum(...)
+                .Where(l => l.Status == LoanStatus.Approved)
+                .Where(l => (l.Fundings.Select(f => (decimal?)f.Amount).Sum() ?? 0m) < l.Amount) // still has remaining
+                .OrderBy(l => l.Amount - (l.Fundings.Select(f => (decimal?)f.Amount).Sum() ?? 0m)) // smallest remaining first
+                .ToListAsync(ct);
         }
+
 
         public async Task<IReadOnlyList<Loan>> GetLoansByBorrowerAsync(Guid borrowerId, CancellationToken cancellationToken)
         {
@@ -99,5 +99,6 @@ namespace LoanWise.Infrastructure.Repositories
                 .AsNoTracking()
                 .ToListAsync(cancellationToken);
         }
+      
     }
 }

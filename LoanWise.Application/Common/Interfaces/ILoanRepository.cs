@@ -1,4 +1,5 @@
-﻿using LoanWise.Domain.Entities;
+﻿using LoanWise.Application.Features.Loans.DTOs;
+using LoanWise.Domain.Entities;
 using LoanWise.Domain.Enums;
 
 namespace LoanWise.Application.Common.Interfaces
@@ -38,6 +39,8 @@ namespace LoanWise.Application.Common.Interfaces
 
         /// <summary>Saves changes if the repository uses a Unit of Work pattern.</summary>
         Task SaveChangesAsync(CancellationToken cancellationToken);
+              
+
 
     }
 }
