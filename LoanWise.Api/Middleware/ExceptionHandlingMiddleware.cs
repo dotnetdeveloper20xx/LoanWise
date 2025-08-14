@@ -1,12 +1,14 @@
-﻿
-using SendGrid.Helpers.Errors.Model;
+﻿using FluentValidation;
+using Microsoft.EntityFrameworkCore;                // DbUpdateConcurrencyException
 using StoreBoost.Application.Common.Models;
 using System.Net;
+// If you have your own NotFound/BadRequest exceptions, use those instead of SendGrid ones.
+// using LoanWise.Application.Common.Exceptions;
 
 namespace LoanWise.Api.Middleware
 {
     /// <summary>
-    /// Middleware that handles unhandled exceptions globally and returns structured error responses.
+    /// Global exception handler returning consistent ApiResponse JSON with proper HTTP codes.
     /// </summary>
     public class ExceptionHandlingMiddleware
     {
@@ -25,41 +27,51 @@ namespace LoanWise.Api.Middleware
             {
                 await _next(context);
             }
-            catch (NotFoundException ex)
+            // ── Known, user-facing errors ─────────────────────────────────────────────
+            catch (ValidationException ex)
             {
-                _logger.LogWarning(ex, "Not found: {Message}", ex.Message);
-                await HandleExceptionAsync(context, HttpStatusCode.NotFound, ex.Message);
-            }
-            catch (BadRequestException ex)
-            {
-                _logger.LogWarning(ex, "Bad request: {Message}", ex.Message);
-                await HandleExceptionAsync(context, HttpStatusCode.BadRequest, ex.Message);
-            }
-            catch (FluentValidation.ValidationException ex)
-            {
-                _logger.LogWarning(ex, "Validation failed: {Message}", ex.Message);
+                _logger.LogWarning(ex, "Validation failed");
                 var message = ex.Errors.FirstOrDefault()?.ErrorMessage ?? "Validation failed.";
-                await HandleExceptionAsync(context, HttpStatusCode.BadRequest, message);
+                await WriteAsync(context, HttpStatusCode.BadRequest, message);
             }
+            catch (InvalidOperationException ex)
+            {
+                // Domain rule violations (e.g., "Funding can only be added to approved/funded/disbursed loans.")
+                _logger.LogWarning(ex, "Domain rule violation");
+                await WriteAsync(context, HttpStatusCode.BadRequest, ex.Message);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                _logger.LogWarning(ex, "Not found");
+                await WriteAsync(context, HttpStatusCode.NotFound, ex.Message);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                _logger.LogWarning(ex, "Forbidden");
+                await WriteAsync(context, HttpStatusCode.Forbidden, ex.Message);
+            }
+            catch (DbUpdateConcurrencyException ex)
+            {
+                _logger.LogWarning(ex, "Concurrency conflict");
+                await WriteAsync(context, (HttpStatusCode)409, "Conflict: resource was modified by another process. Please retry.");
+            }
+            // ── Fallback ─────────────────────────────────────────────────────────────
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Unhandled exception occurred.");
-                await HandleExceptionAsync(context, HttpStatusCode.InternalServerError, "Something went wrong. Please try again later.");
+                _logger.LogError(ex, "Unhandled exception");
+                await WriteAsync(context, HttpStatusCode.InternalServerError, "Something went wrong. Please try again later.");
             }
         }
 
-        /// <summary>
-        /// Writes a structured API error response.
-        /// </summary>
-        private async Task HandleExceptionAsync(HttpContext context, HttpStatusCode statusCode, string message)
+        private static async Task WriteAsync(HttpContext context, HttpStatusCode status, string message)
         {
-            context.Response.ContentType = "application/json";
-            context.Response.StatusCode = (int)statusCode;
-
-            var response = ApiResponse<object>.FailureResult(message);
-            var json = System.Text.Json.JsonSerializer.Serialize(response);
-
-            await context.Response.WriteAsync(json);
+            if (!context.Response.HasStarted)
+            {
+                context.Response.ContentType = "application/json";
+                context.Response.StatusCode = (int)status;
+                var payload = ApiResponse<object>.FailureResult(message);
+                await context.Response.WriteAsJsonAsync(payload);
+            }
         }
     }
 }

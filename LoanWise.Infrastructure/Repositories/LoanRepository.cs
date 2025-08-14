@@ -25,7 +25,16 @@ namespace LoanWise.Infrastructure.Repositories
 
         public async Task UpdateAsync(Loan loan, CancellationToken cancellationToken)
         {
-            _context.Loans.Update(loan);
+            var entry = _context.Entry(loan);
+
+            if (entry.State == EntityState.Detached)
+            {
+                // Only attach/mark modified if truly detached (e.g., coming from a DTO map).
+                _context.Loans.Attach(loan);
+                entry.State = EntityState.Modified;
+            }
+            // If it's already tracked, we changed properties on the tracked instance,
+            // so SaveChanges is all we need.
             await _context.SaveChangesAsync(cancellationToken);
         }
 
@@ -102,8 +111,7 @@ namespace LoanWise.Infrastructure.Repositories
       
         public async Task<Loan?> GetByIdWithRepaymentsAsync(Guid id, CancellationToken ct)
         {
-            return await _context.Loans
-                    .AsNoTracking()
+            return await _context.Loans                   
                     .Include(l => l.Repayments)
                     .FirstOrDefaultAsync(l => l.Id == id, ct);
         }

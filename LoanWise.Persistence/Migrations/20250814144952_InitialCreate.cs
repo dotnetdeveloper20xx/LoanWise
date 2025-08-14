@@ -90,7 +90,7 @@ namespace LoanWise.Persistence.Migrations
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     BorrowerId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
-                    Amount = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
+                    Amount = table.Column<decimal>(type: "decimal(18,2)", precision: 18, scale: 2, nullable: false),
                     DurationInMonths = table.Column<int>(type: "int", nullable: false),
                     Purpose = table.Column<int>(type: "int", nullable: false),
                     Status = table.Column<int>(type: "int", nullable: false),
@@ -99,7 +99,8 @@ namespace LoanWise.Persistence.Migrations
                     RejectedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: true),
                     ApprovedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: true),
                     CreatedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: false),
-                    DisbursedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: true)
+                    DisbursedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    RowVersion = table.Column<byte[]>(type: "rowversion", rowVersion: true, nullable: false)
                 },
                 constraints: table =>
                 {
@@ -208,7 +209,7 @@ namespace LoanWise.Persistence.Migrations
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     LenderId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     LoanId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
-                    Amount = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
+                    Amount = table.Column<decimal>(type: "decimal(18,2)", precision: 18, scale: 2, nullable: false),
                     FundedOn = table.Column<DateTime>(type: "datetime2", nullable: false),
                     UserId = table.Column<Guid>(type: "uniqueidentifier", nullable: true)
                 },

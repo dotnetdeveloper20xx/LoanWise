@@ -1,6 +1,7 @@
 ﻿using LoanWise.Application.Features.Loans.DTOs;
 using LoanWise.Domain.Entities;
 using LoanWise.Domain.Enums;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 
 namespace LoanWise.Application.Common.Interfaces
 {

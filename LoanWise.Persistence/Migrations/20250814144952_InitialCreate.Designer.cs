@@ -12,7 +12,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace LoanWise.Persistence.Migrations
 {
     [DbContext(typeof(LoanWiseDbContext))]
-    [Migration("20250813153227_InitialCreate")]
+    [Migration("20250814144952_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -126,6 +126,7 @@ namespace LoanWise.Persistence.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<DateTime>("FundedOn")
@@ -190,6 +191,7 @@ namespace LoanWise.Persistence.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<DateTime?>("ApprovedAtUtc")
@@ -218,6 +220,12 @@ namespace LoanWise.Persistence.Migrations
 
                     b.Property<int>("RiskLevel")
                         .HasColumnType("int");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
 
                     b.Property<int>("Status")
                         .HasColumnType("int");

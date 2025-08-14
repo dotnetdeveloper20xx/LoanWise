@@ -36,6 +36,8 @@ namespace LoanWise.Domain.Entities
         public IReadOnlyCollection<Funding> Fundings => _fundings.AsReadOnly();
         public IReadOnlyCollection<Repayment> Repayments => _repayments.AsReadOnly();
 
+        public byte[] RowVersion { get; private set; } = Array.Empty<byte>();
+
         // EF
         private Loan() { }
 

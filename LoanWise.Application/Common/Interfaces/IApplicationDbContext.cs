@@ -1,90 +1,29 @@
 ﻿using LoanWise.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 
-namespace LoanWise.Application.Common.Interfaces
+public interface IApplicationDbContext
 {
-    /// <summary>
-    /// Represents the abstraction of the EF Core DbContext used throughout the application.
-    /// Enables dependency injection and testability.
-    /// </summary>
-    public interface IApplicationDbContext
-    {
-        // =========================
-        // Core Lending
-        // =========================
+    // Core Lending
+    DbSet<Loan> Loans { get; }
+    DbSet<Repayment> Repayments { get; }
+    DbSet<Funding> Fundings { get; }
+    DbSet<LenderRepayment> LenderRepayments { get; }
 
-        /// <summary>
-        /// Loans submitted by borrowers.
-        /// </summary>
-        DbSet<Loan> Loans { get; }
+    // Users & Security
+    DbSet<User> Users { get; }
+    DbSet<RefreshToken> RefreshTokens { get; }
 
-        /// <summary>
-        /// Repayment entries for loans.
-        /// </summary>
-        DbSet<Repayment> Repayments { get; }
+    // Ops / Compliance
+    DbSet<VerificationDocument> VerificationDocuments { get; }
+    DbSet<SystemEvent> SystemEvents { get; }
+    DbSet<CreditProfile> CreditProfiles { get; }
+    DbSet<EscrowTransaction> EscrowTransactions { get; }
+    DbSet<Notification> Notifications { get; }
+    DbSet<BorrowerRiskSnapshot> BorrowerRiskSnapshots { get; }
 
-        /// <summary>
-        /// Lender funding contributions.
-        /// </summary>
-        DbSet<Funding> Fundings { get; }
+    // ✨ NEW: allow repositories to manage entity state
+    EntityEntry Entry(object entity);
 
-        /// <summary>
-        /// Per-lender repayment allocations.
-        /// </summary>
-        DbSet<LenderRepayment> LenderRepayments { get; }
-
-        // =========================
-        // User & Security
-        // =========================
-
-        /// <summary>
-        /// Application users (borrowers, lenders, admins).
-        /// </summary>
-        DbSet<User> Users { get; }
-
-        /// <summary>
-        /// Refresh tokens for JWT authentication.
-        /// </summary>
-        DbSet<RefreshToken> RefreshTokens { get; }
-
-        // =========================
-        // Operational / Compliance
-        // =========================
-
-        /// <summary>
-        /// KYC and verification documents.
-        /// </summary>
-        DbSet<VerificationDocument> VerificationDocuments { get; }
-
-        /// <summary>
-        /// System-level logged events (audit, diagnostics).
-        /// </summary>
-        DbSet<SystemEvent> SystemEvents { get; }
-
-        /// <summary>
-        /// Credit profile simulations or imports.
-        /// </summary>
-        DbSet<CreditProfile> CreditProfiles { get; }
-
-        /// <summary>
-        /// Escrow ledger of virtual transactions.
-        /// </summary>
-        DbSet<EscrowTransaction> EscrowTransactions { get; }
-
-        /// <summary>
-        /// In-app notifications for users.
-        /// </summary>
-        DbSet<Notification> Notifications { get; }
-
-        DbSet<BorrowerRiskSnapshot> BorrowerRiskSnapshots { get; }        
-
-        // =========================
-        // Commit
-        // =========================
-
-        /// <summary>
-        /// Persists changes to the database.
-        /// </summary>
-        Task<int> SaveChangesAsync(CancellationToken cancellationToken);
-    }
+    Task<int> SaveChangesAsync(CancellationToken cancellationToken);
 }

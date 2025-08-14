@@ -2,6 +2,7 @@
 using LoanWise.Application.Features.Loans.Commands.DisburseLoan;
 using LoanWise.Domain.Enums;
 using MediatR;
+using Microsoft.EntityFrameworkCore; // for DbUpdateConcurrencyException
 using Microsoft.Extensions.Logging;
 using StoreBoost.Application.Common.Models;
 
@@ -9,7 +10,7 @@ public class DisburseLoanCommandHandler : IRequestHandler<DisburseLoanCommand, A
 {
     private readonly ILoanRepository _loanRepository;
     private readonly ILogger<DisburseLoanCommandHandler> _logger;
-    private readonly IMediator _mediator; // keep injected, see note below
+    private readonly IMediator _mediator; // keep injected for domain notifications if not dispatched by DbContext
 
     public DisburseLoanCommandHandler(
         ILoanRepository loanRepository,
@@ -23,7 +24,7 @@ public class DisburseLoanCommandHandler : IRequestHandler<DisburseLoanCommand, A
 
     public async Task<ApiResponse<Guid>> Handle(DisburseLoanCommand request, CancellationToken ct)
     {
-        // Load with repayments to support idempotency
+        // Load tracked (no AsNoTracking) so EF has original values/concurrency token.
         var loan = await _loanRepository.GetByIdWithRepaymentsAsync(request.LoanId, ct);
         if (loan is null)
         {
@@ -31,52 +32,62 @@ public class DisburseLoanCommandHandler : IRequestHandler<DisburseLoanCommand, A
             return ApiResponse<Guid>.FailureResult("Loan not found.");
         }
 
-        // Friendly pre-check (Disburse() also guards, but this gives a clearer message)
+        // Friendly guardrails (aggregate will also protect itself).
         if (loan.Status == LoanStatus.Rejected)
             return ApiResponse<Guid>.FailureResult("Cannot disburse a rejected loan.");
 
-        // Already disbursed? Be idempotent.
+        // Idempotency: if already disbursed, ensure schedule exists and return success.
         if (loan.Status == LoanStatus.Disbursed)
         {
-            var count = loan.Repayments?.Count ?? 0;
-            if (count == 0)
+            var existing = loan.Repayments?.Count ?? 0;
+            if (existing == 0)
             {
-                loan.GenerateRepaymentSchedule();
-                await _loanRepository.UpdateAsync(loan, ct);
+                loan.GenerateRepaymentSchedule(); // safe now because status is Disbursed
+                try
+                {
+                    // IMPORTANT: UpdateAsync must NOT call DbSet.Update() for tracked entities.
+                    await _loanRepository.UpdateAsync(loan, ct);
 
-                _logger.LogInformation("Loan {LoanId} was already disbursed; generated missing schedule ({Count} installments).",
-                    loan.Id, loan.Repayments?.Count);
+                    _logger.LogInformation(
+                        "Loan {LoanId} already disbursed; generated missing schedule ({Count} installments).",
+                        loan.Id, loan.Repayments?.Count ?? 0);
 
-                return ApiResponse<Guid>.SuccessResult(
-                    loan.Id,
-                    $"Repayment schedule generated ({loan.Repayments?.Count} installments)."
-                );
+                    return ApiResponse<Guid>.SuccessResult(
+                        loan.Id,
+                        $"Repayment schedule generated ({loan.Repayments?.Count ?? 0} installments)."
+                    );
+                }
+                catch (DbUpdateConcurrencyException)
+                {
+                    _logger.LogWarning("Concurrency conflict while generating missing schedule for loan {LoanId}", loan.Id);
+                    return ApiResponse<Guid>.FailureResult("Conflict: loan was modified by another process. Please retry.");
+                }
             }
 
             _logger.LogInformation("Loan {LoanId} already disbursed; schedule exists ({Count} installments).",
-                loan.Id, count);
+                loan.Id, existing);
 
             return ApiResponse<Guid>.SuccessResult(
                 loan.Id,
-                $"Loan already disbursed; {count} installments exist."
+                $"Loan already disbursed; {existing} installments exist."
             );
         }
 
+        // Normal path: Funded -> Disbursed + schedule
         try
         {
-            // Funded -> Disbursed + schedule
-            loan.Disburse();                  // raises LoanDisbursedEvent inside the aggregate
-            loan.GenerateRepaymentSchedule(); // will throw if not Disbursed
+            loan.Disburse();                  // aggregate state change (may raise domain event)
+            loan.GenerateRepaymentSchedule(); // requires Disbursed state
 
+            // Persist tracked changes. Implementation detail:
+            // - If entity is tracked, UpdateAsync should simply SaveChangesAsync(ct).
             await _loanRepository.UpdateAsync(loan, ct);
 
-            _logger.LogInformation("Loan {LoanId} disbursed and schedule generated ({Count} installments).",
+            _logger.LogInformation("Loan {LoanId} disbursed; schedule generated ({Count} installments).",
                 loan.Id, loan.Repayments.Count);
 
-            // IMPORTANT:
-            // If your DbContext dispatches domain events on SaveChanges, DO NOT publish manually here.
-            // If it does NOT, uncomment the following line to publish the event explicitly:
-            // await _mediator.Publish(new LoanDisbursedEvent(loan.Id, loan.DisbursedAtUtc!.Value), ct);
+            // If your DbContext does NOT dispatch domain events on SaveChanges,
+            // publish them explicitly here via _mediator.Publish(...).
 
             return ApiResponse<Guid>.SuccessResult(
                 loan.Id,
@@ -85,8 +96,15 @@ public class DisburseLoanCommandHandler : IRequestHandler<DisburseLoanCommand, A
         }
         catch (InvalidOperationException ex)
         {
+            // e.g., Disburse() guard failures
             _logger.LogWarning("Disbursement rejected for loan {LoanId}: {Message}", loan.Id, ex.Message);
             return ApiResponse<Guid>.FailureResult(ex.Message);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            // Map to a clear, user-facing message; your middleware can translate to HTTP 409.
+            _logger.LogWarning("Concurrency conflict while disbursing loan {LoanId}", loan.Id);
+            return ApiResponse<Guid>.FailureResult("Conflict: loan was modified by another process. Please retry.");
         }
     }
 }

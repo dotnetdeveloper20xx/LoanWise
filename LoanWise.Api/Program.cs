@@ -160,6 +160,8 @@ app.UseHttpsRedirection();
 
 // app.UseCors("Client"); // enable if you add a policy above
 
+app.UseMiddleware<LoanWise.Api.Middleware.ExceptionHandlingMiddleware>();
+
 app.UseAuthentication();
 app.UseAuthorization();
 
