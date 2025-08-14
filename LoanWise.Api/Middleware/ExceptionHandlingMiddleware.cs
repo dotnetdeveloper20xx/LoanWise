@@ -1,77 +1,73 @@
-﻿using FluentValidation;
-using Microsoft.EntityFrameworkCore;                // DbUpdateConcurrencyException
-using StoreBoost.Application.Common.Models;
+﻿// LoanWise.API/Middlewares/ExceptionHandlingMiddleware.cs
 using System.Net;
-// If you have your own NotFound/BadRequest exceptions, use those instead of SendGrid ones.
-// using LoanWise.Application.Common.Exceptions;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
+using System.Text.Json;
 
-namespace LoanWise.Api.Middleware
+namespace LoanWise.API.Middlewares
 {
-    /// <summary>
-    /// Global exception handler returning consistent ApiResponse JSON with proper HTTP codes.
-    /// </summary>
-    public class ExceptionHandlingMiddleware
+    public sealed class ExceptionHandlingMiddleware : IMiddleware
     {
-        private readonly RequestDelegate _next;
         private readonly ILogger<ExceptionHandlingMiddleware> _logger;
+        public ExceptionHandlingMiddleware(ILogger<ExceptionHandlingMiddleware> logger) => _logger = logger;
 
-        public ExceptionHandlingMiddleware(RequestDelegate next, ILogger<ExceptionHandlingMiddleware> logger)
-        {
-            _next = next;
-            _logger = logger;
-        }
-
-        public async Task Invoke(HttpContext context)
+        public async Task InvokeAsync(HttpContext context, RequestDelegate next)
         {
             try
             {
-                await _next(context);
+                await next(context);
             }
-            // ── Known, user-facing errors ─────────────────────────────────────────────
-            catch (ValidationException ex)
-            {
-                _logger.LogWarning(ex, "Validation failed");
-                var message = ex.Errors.FirstOrDefault()?.ErrorMessage ?? "Validation failed.";
-                await WriteAsync(context, HttpStatusCode.BadRequest, message);
-            }
-            catch (InvalidOperationException ex)
-            {
-                // Domain rule violations (e.g., "Funding can only be added to approved/funded/disbursed loans.")
-                _logger.LogWarning(ex, "Domain rule violation");
-                await WriteAsync(context, HttpStatusCode.BadRequest, ex.Message);
-            }
-            catch (KeyNotFoundException ex)
-            {
-                _logger.LogWarning(ex, "Not found");
-                await WriteAsync(context, HttpStatusCode.NotFound, ex.Message);
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                _logger.LogWarning(ex, "Forbidden");
-                await WriteAsync(context, HttpStatusCode.Forbidden, ex.Message);
-            }
-            catch (DbUpdateConcurrencyException ex)
-            {
-                _logger.LogWarning(ex, "Concurrency conflict");
-                await WriteAsync(context, (HttpStatusCode)409, "Conflict: resource was modified by another process. Please retry.");
-            }
-            // ── Fallback ─────────────────────────────────────────────────────────────
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Unhandled exception");
-                await WriteAsync(context, HttpStatusCode.InternalServerError, "Something went wrong. Please try again later.");
+                var problem = CreateProblemDetails(context, ex);
+                context.Response.ContentType = "application/problem+json";
+                context.Response.StatusCode = problem.Status ?? (int)HttpStatusCode.InternalServerError;
+                await context.Response.WriteAsync(JsonSerializer.Serialize(problem));
             }
         }
 
-        private static async Task WriteAsync(HttpContext context, HttpStatusCode status, string message)
+        private static ProblemDetails CreateProblemDetails(HttpContext ctx, Exception ex)
         {
-            if (!context.Response.HasStarted)
+            var traceId = ctx.TraceIdentifier;
+
+            return ex switch
             {
-                context.Response.ContentType = "application/json";
-                context.Response.StatusCode = (int)status;
-                var payload = ApiResponse<object>.FailureResult(message);
-                await context.Response.WriteAsJsonAsync(payload);
-            }
+                UnauthorizedAccessException => new ProblemDetails
+                {
+                    Title = "Unauthorized",
+                    Detail = ex.Message,
+                    Status = StatusCodes.Status401Unauthorized,
+                    Type = "https://httpstatuses.com/401",
+                    Extensions = { ["traceId"] = traceId }
+                },
+                KeyNotFoundException => new ProblemDetails
+                {
+                    Title = "Not Found",
+                    Detail = ex.Message,
+                    Status = StatusCodes.Status404NotFound,
+                    Type = "https://httpstatuses.com/404",
+                    Extensions = { ["traceId"] = traceId }
+                },
+                FluentValidation.ValidationException v => new ValidationProblemDetails(
+                    v.Errors.GroupBy(e => e.PropertyName)
+                            .ToDictionary(g => g.Key, g => g.Select(e => e.ErrorMessage).ToArray()))
+                {
+                    Title = "Validation failed",
+                    Status = StatusCodes.Status400BadRequest,
+                    Type = "https://httpstatuses.com/400",
+                    Extensions = { ["traceId"] = traceId }
+                },
+                _ => new ProblemDetails
+                {
+                    Title = "Unexpected error",
+                    Detail = ex.Message,
+                    Status = StatusCodes.Status500InternalServerError,
+                    Type = "https://httpstatuses.com/500",
+                    Extensions = { ["traceId"] = traceId }
+                }
+            };
         }
     }
 }

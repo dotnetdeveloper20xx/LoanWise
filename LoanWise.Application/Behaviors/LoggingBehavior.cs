@@ -1,43 +1,32 @@
-﻿using MediatR;
+﻿// LoanWise.Application/Behaviors/LoggingBehavior.cs
+using MediatR;
 using Microsoft.Extensions.Logging;
-using System;
-using System.Threading;
-using System.Threading.Tasks;
+using System.Diagnostics;
 
 namespace LoanWise.Application.Behaviors
 {
-    /// <summary>
-    /// Logs the execution of all MediatR requests, including start and end time.
-    /// </summary>
-    /// <typeparam name="TRequest">The request type.</typeparam>
-    /// <typeparam name="TResponse">The response type.</typeparam>
-    public class LoggingBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse>
-        where TRequest : IRequest<TResponse>
+    public sealed class LoggingBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse>
+        where TRequest : notnull
     {
         private readonly ILogger<LoggingBehavior<TRequest, TResponse>> _logger;
+        public LoggingBehavior(ILogger<LoggingBehavior<TRequest, TResponse>> logger) => _logger = logger;
 
-        public LoggingBehavior(ILogger<LoggingBehavior<TRequest, TResponse>> logger)
+        public async Task<TResponse> Handle(TRequest request, RequestHandlerDelegate<TResponse> next, CancellationToken ct)
         {
-            _logger = logger;
-        }
-
-        public async Task<TResponse> Handle(
-            TRequest request,
-            RequestHandlerDelegate<TResponse> next,
-            CancellationToken cancellationToken)
-        {
-            var requestName = typeof(TRequest).Name;
-            _logger.LogInformation("➡️ Handling {RequestName}", requestName);
-
+            var name = typeof(TRequest).Name;
+            var sw = Stopwatch.StartNew();
+            _logger.LogInformation("Handling {Request}: {@Payload}", name, request);
             try
             {
-                var response = await next();
-                _logger.LogInformation("✅ {RequestName} handled successfully", requestName);
-                return response;
+                var res = await next();
+                sw.Stop();
+                _logger.LogInformation("Handled {Request} in {Elapsed} ms", name, sw.ElapsedMilliseconds);
+                return res;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "❌ {RequestName} failed with exception", requestName);
+                sw.Stop();
+                _logger.LogError(ex, "Error handling {Request} after {Elapsed} ms", name, sw.ElapsedMilliseconds);
                 throw;
             }
         }

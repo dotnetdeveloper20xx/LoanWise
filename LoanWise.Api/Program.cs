@@ -1,13 +1,25 @@
-﻿using LoanWise.Api.Auth;                       // SignalRUserIdProvider         
+﻿using LoanWise.Api.Auth;                       // SignalRUserIdProvider
+using LoanWise.API.Middlewares;                // ExceptionHandlingMiddleware (ProblemDetails)
 using LoanWise.Application.DependencyInjection; // AddApplication()
 using LoanWise.Infrastructure.DependencyInjection; // AddInfrastructure(), AddPersistence()
-using LoanWise.Infrastructure.Notifications;    // EmailNotificationService
+using LoanWise.Infrastructure.Notifications;   // EmailNotificationService
 using LoanWise.Persistence.Context;
 using LoanWise.Persistence.Setup;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+
+// Optional but recommended (add packages: OpenTelemetry.Extensions.Hosting, OpenTelemetry.Instrumentation.*)
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
+
+// Optional but recommended (add package Serilog.AspNetCore)
+using Serilog;
 using System.Reflection;
 using System.Text;
 using System.Text.Json.Serialization;
@@ -15,7 +27,13 @@ using System.Text.Json.Serialization;
 var builder = WebApplication.CreateBuilder(args);
 
 // ─────────────────────────────────────────────
-// Layers (Clean Architecture)
+// Logging (Serilog) — JSON logs, enrich with request info
+// ─────────────────────────────────────────────
+builder.Host.UseSerilog((ctx, lc) =>
+    lc.ReadFrom.Configuration(ctx.Configuration));
+
+// ─────────────────────────────────────────────
+/* Layers (Clean Architecture) */
 // ─────────────────────────────────────────────
 builder.Services
     .AddApplication()
@@ -23,25 +41,44 @@ builder.Services
     .AddPersistence(builder.Configuration);
 
 // ─────────────────────────────────────────────
-// MVC + Swagger
+// MVC + JSON
 // ─────────────────────────────────────────────
 builder.Services.AddRouting(o => o.LowercaseUrls = true);
+
 builder.Services.AddControllers()
     .AddJsonOptions(o =>
     {
         o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
-        o.JsonSerializerOptions.DefaultIgnoreCondition =
-            System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault;
+        o.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingDefault;
+        o.JsonSerializerOptions.PropertyNamingPolicy = null; // keep DTO casing stable if desired
     });
 
+// ─────────────────────────────────────────────
+// API Versioning (v1 default) + Explorer (groups)
+// ─────────────────────────────────────────────
+builder.Services.AddApiVersioning(options =>
+{
+    options.DefaultApiVersion = new ApiVersion(1, 0);
+    options.AssumeDefaultVersionWhenUnspecified = true;
+    options.ReportApiVersions = true;
+});
 
+builder.Services.AddVersionedApiExplorer(options =>
+{
+    options.GroupNameFormat = "'v'VVV";
+    options.SubstituteApiVersionInUrl = true;
+});
+
+// ─────────────────────────────────────────────
+// Swagger + JWT auth
+// ─────────────────────────────────────────────
 builder.Services.AddEndpointsApiExplorer();
 
 builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo { Title = "LoanWise API", Version = "v1" });
 
-    // Include XML comments (if you enable <GenerateDocumentationFile/> on your API csproj)
+    // Include XML comments (enable <GenerateDocumentationFile/> on API csproj)
     var xmlName = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
     var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlName);
     if (File.Exists(xmlPath))
@@ -52,7 +89,7 @@ builder.Services.AddSwaggerGen(c =>
     {
         Name = "Authorization",
         Type = SecuritySchemeType.Http,
-        Scheme = "bearer",                       // must be "bearer"
+        Scheme = "bearer",
         BearerFormat = "JWT",
         In = ParameterLocation.Header,
         Description = "Enter: Bearer {your token}",
@@ -72,8 +109,8 @@ builder.Services.AddSingleton<IUserIdProvider, SignalRUserIdProvider>(); // map 
 // Authentication / Authorization (JWT)
 // ─────────────────────────────────────────────
 var issuer = builder.Configuration["Jwt:Issuer"];
-var audience = builder.Configuration["Jwt:Audience"] ?? issuer; // often same
-var key = builder.Configuration["Jwt:Key"] ?? "super-secret-key";
+var audience = builder.Configuration["Jwt:Audience"] ?? issuer;
+var key = builder.Configuration["Jwt:Key"] ?? "super-secret-key"; // TODO: move to Key Vault for prod
 var keyBytes = Encoding.UTF8.GetBytes(key);
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -107,7 +144,46 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    // Policy examples — wire these to your controllers as needed
+    options.AddPolicy("IsBorrower", p => p.RequireRole("Borrower"));
+    options.AddPolicy("CanDisburseLoan", p => p.RequireRole("Admin", "Lender"));
+});
+
+// ─────────────────────────────────────────────
+// Rate Limiting (baseline: 60 req/min per client)
+// ─────────────────────────────────────────────
+builder.Services.AddRateLimiter(_ => _.AddFixedWindowLimiter("default", opt =>
+{
+    opt.PermitLimit = 60;
+    opt.Window = TimeSpan.FromMinutes(1);
+    opt.QueueLimit = 0;
+}));
+
+// ─────────────────────────────────────────────
+// Health Checks (DB ready/live) — add more as needed
+// ─────────────────────────────────────────────
+builder.Services.AddHealthChecks()
+    .AddDbContextCheck<LoanWiseDbContext>("database", HealthStatus.Unhealthy, new[] { "ready" });
+
+// ─────────────────────────────────────────────
+// OpenTelemetry (minimal) — traces for API/HTTP/EF Core
+// ─────────────────────────────────────────────
+
+builder.Services.AddOpenTelemetry()
+  .ConfigureResource(r => r.AddService("LoanWise.API"))
+  .WithTracing(t =>
+  {
+      t.AddAspNetCoreInstrumentation();
+      t.AddHttpClientInstrumentation();
+      //t.AddEntityFrameworkCoreInstrumentation(o =>
+      //{
+      //    o.SetDbStatementForText = true;
+      //    o.SetDbStatementForStoredProcedure = true;
+      //});
+  });
+
 
 // ─────────────────────────────────────────────
 // Composite notifier: SignalR + Email
@@ -121,9 +197,21 @@ builder.Services.AddScoped<INotificationService>(sp =>
 });
 
 // ─────────────────────────────────────────────
-// Build & Pipeline
+// Build
 // ─────────────────────────────────────────────
 var app = builder.Build();
+
+// ─────────────────────────────────────────────
+// DEV‑ONLY: warn on pending EF migrations (don’t auto‑migrate in prod)
+// ─────────────────────────────────────────────
+if (app.Environment.IsDevelopment())
+{
+    using var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<LoanWiseDbContext>();
+    var pending = await db.Database.GetPendingMigrationsAsync();
+    if (pending.Any())
+        app.Logger.LogWarning("EF Core pending migrations: {Count}. Create/apply migrations before prod.", pending.Count());
+}
 
 // --- SEED DATABASE (runs at startup) ---
 using (var scope = app.Services.CreateScope())
@@ -142,7 +230,9 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
-// Always expose Swagger in Dev; optionally enable in other envs too
+// ─────────────────────────────────────────────
+// Swagger
+// ─────────────────────────────────────────────
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -152,23 +242,47 @@ if (app.Environment.IsDevelopment())
         c.RoutePrefix = string.Empty; // Swagger UI at /
     });
 }
-// Uncomment to always show Swagger (even in Prod behind auth/proxy)
-// else
-// {
-//     app.UseSwagger();
-//     app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "LoanWise API v1"));
-// }
+// For production, consider enabling Swagger behind auth/proxy:
+// else { app.UseSwagger(); app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "LoanWise API v1")); }
 
 app.UseHttpsRedirection();
 
-// app.UseCors("Client"); // enable if you add a policy above
+// ─────────────────────────────────────────────
+// Security headers (baseline hardening)
+// ─────────────────────────────────────────────
+app.Use(async (ctx, next) =>
+{
+    ctx.Response.Headers["X-Content-Type-Options"] = "nosniff";
+    ctx.Response.Headers["X-Frame-Options"] = "DENY";
+    ctx.Response.Headers["Referrer-Policy"] = "no-referrer";
+    await next();
+});
 
-app.UseMiddleware<LoanWise.Api.Middleware.ExceptionHandlingMiddleware>();
+// ─────────────────────────────────────────────
+// ProblemDetails middleware first, then auth
+// ─────────────────────────────────────────────
+app.UseMiddleware<ExceptionHandlingMiddleware>();
+
+app.UseRouting();
+
+app.UseRateLimiter();
 
 app.UseAuthentication();
 app.UseAuthorization();
 
+// app.UseCors("Client"); // enable if you add a policy above
+
+// ─────────────────────────────────────────────
+// Endpoints
+// ─────────────────────────────────────────────
 app.MapControllers();
+
+// Health — /health/live and /health/ready
+app.MapHealthChecks("/health/live");
+app.MapHealthChecks("/health/ready", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    Predicate = r => r.Tags.Contains("ready")
+});
 
 // SignalR hub
 app.MapHub<NotificationsHub>("/hubs/notifications");
@@ -190,5 +304,8 @@ app.MapGet("/_debug/routes", (IEnumerable<EndpointDataSource> sources) =>
 })
 .WithName("RouteList")
 .WithOpenApi();
+
+// Serilog request logging
+app.UseSerilogRequestLogging();
 
 app.Run();

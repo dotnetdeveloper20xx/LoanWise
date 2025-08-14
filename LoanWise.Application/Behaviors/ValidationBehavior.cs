@@ -1,51 +1,39 @@
-﻿using FluentValidation;
+﻿// LoanWise.Application/Behaviors/ValidationBehavior.cs
+using FluentValidation;
 using MediatR;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 
 namespace LoanWise.Application.Behaviors
 {
-    /// <summary>
-    /// Pipeline behavior that executes all registered FluentValidation validators before the request handler.
-    /// </summary>
-    /// <typeparam name="TRequest">The command or query request type.</typeparam>
-    /// <typeparam name="TResponse">The expected response type.</typeparam>
-    public class ValidationBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse>
-        where TRequest : IRequest<TResponse>
+    public sealed class ValidationBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse>
+        where TRequest : notnull
     {
         private readonly IEnumerable<IValidator<TRequest>> _validators;
+        private readonly ILogger<ValidationBehavior<TRequest, TResponse>> _logger;
 
-        public ValidationBehavior(IEnumerable<IValidator<TRequest>> validators)
+        public ValidationBehavior(IEnumerable<IValidator<TRequest>> validators,
+                                  ILogger<ValidationBehavior<TRequest, TResponse>> logger)
         {
             _validators = validators;
+            _logger = logger;
         }
 
-        public async Task<TResponse> Handle(TRequest request, RequestHandlerDelegate<TResponse> next, CancellationToken cancellationToken)
+        public async Task<TResponse> Handle(TRequest request, RequestHandlerDelegate<TResponse> next, CancellationToken ct)
         {
             if (_validators.Any())
             {
                 var context = new ValidationContext<TRequest>(request);
-
-                var validationResults = await Task.WhenAll(
-                    _validators.Select(v => v.ValidateAsync(context, cancellationToken)));
-
-                var failures = validationResults
+                var failures = (await Task.WhenAll(_validators.Select(v => v.ValidateAsync(context, ct))))
                     .SelectMany(r => r.Errors)
                     .Where(f => f != null)
                     .ToList();
 
-                if (failures.Count > 0)
+                if (failures.Count != 0)
                 {
-                    var failureMessages = failures
-                        .Select(f => $"{f.PropertyName}: {f.ErrorMessage}")
-                        .ToList();
-
-                    throw new ValidationException("Validation failed", failures);
+                    _logger.LogWarning("Validation failed for {RequestType}: {@Failures}", typeof(TRequest).Name, failures);
+                    throw new FluentValidation.ValidationException(failures);
                 }
             }
-
             return await next();
         }
     }
