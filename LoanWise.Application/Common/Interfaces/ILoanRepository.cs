@@ -42,5 +42,7 @@ namespace LoanWise.Application.Common.Interfaces
            
         Task<Loan?> GetByIdWithRepaymentsAsync(Guid id, CancellationToken ct);
 
+        Task<Loan?> GetLoanByRepaymentIdWithFundingsAsync(Guid repaymentId, CancellationToken ct);
+
     }
 }

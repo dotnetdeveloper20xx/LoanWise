@@ -108,5 +108,13 @@ namespace LoanWise.Infrastructure.Repositories
                     .FirstOrDefaultAsync(l => l.Id == id, ct);
         }
 
+        public async Task<Loan?> GetLoanByRepaymentIdWithFundingsAsync(Guid repaymentId, CancellationToken ct)
+        {
+            return await _context.Loans
+                .Include(l => l.Repayments)
+                .Include(l => l.Fundings)
+                .FirstOrDefaultAsync(l => l.Repayments.Any(r => r.Id == repaymentId), ct);
+        }
+
     }
 }

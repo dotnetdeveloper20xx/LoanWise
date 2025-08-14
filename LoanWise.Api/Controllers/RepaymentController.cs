@@ -34,26 +34,14 @@ namespace LoanWise.Api.Controllers
             _logger = logger;
         }
 
-        /// <summary>
-        /// (Authored by Faz Ahmed) Marks a repayment as paid by repayment ID.
-        /// </summary>
-        /// <param name="repaymentId">The repayment ID to mark as paid.</param>
-        /// <param name="ct">Cancellation token.</param>
-        /// <returns>ApiResponse with the repayment ID on success.</returns>
-        /// <response code="200">Repayment marked as paid.</response>
-        /// <response code="400">Validation/business rule failure (e.g., not found, already paid).</response>
         [HttpPost("{repaymentId:guid}/pay")]
+        [Authorize(Roles = "Borrower,Admin")]
         [ProducesResponseType(typeof(ApiResponse<Guid>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ApiResponse<Guid>), StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> MakeRepayment([FromRoute] Guid repaymentId, CancellationToken ct = default)
         {
             if (repaymentId == Guid.Empty)
-            {
-                var bad = ApiResponse<Guid>.FailureResult("Repayment ID cannot be empty.");
-                return BadRequest(bad);
-            }
-
-            _logger.LogInformation("Borrower requested to mark repayment {RepaymentId} as paid.", repaymentId);
+                return BadRequest(ApiResponse<Guid>.FailureResult("Repayment ID cannot be empty."));
 
             var result = await _mediator.Send(new MakeRepaymentCommand(repaymentId), ct);
             return result.Success ? Ok(result) : BadRequest(result);
