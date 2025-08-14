@@ -7,6 +7,7 @@
 // See: Clean Architecture + CQRS + MediatR design for LoanWise. 
 
 using LoanWise.Application.DTOs.Loans;
+using LoanWise.Application.DTOs.Repayments;
 using LoanWise.Application.Features.Dashboard.Queries.GetAdminLoanStats;
 using LoanWise.Application.Features.Dashboard.Queries.GetBorrowerDashboard;
 using LoanWise.Application.Features.Loans.Commands.ApplyLoan;
@@ -89,17 +90,23 @@ namespace LoanWise.Api.Controllers
         }
 
         /// <summary>
-        /// Borrower views the repayment schedule for a specific loan.
+        /// Returns the repayment schedule for a specific loan.
+        /// Borrowers can view their own loans; Admins can view any (handler enforces ownership).
         /// </summary>
         [HttpGet("{loanId:guid}/repayments")]
-        [Authorize(Roles = "Borrower")]
-        [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+        [Authorize(Roles = "Borrower,Admin")]
+        [ProducesResponseType(typeof(ApiResponse<List<RepaymentDto>>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse<List<RepaymentDto>>), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
         public async Task<IActionResult> GetRepaymentsByLoanId([FromRoute] Guid loanId, CancellationToken ct)
         {
             var result = await _mediator.Send(new GetRepaymentsByLoanIdQuery(loanId), ct);
             return result.Success ? Ok(result) : BadRequest(result);
         }
+
+
+
 
         /// <summary>
         /// Borrower dashboard summary (totals, upcoming repayment, outstanding).
