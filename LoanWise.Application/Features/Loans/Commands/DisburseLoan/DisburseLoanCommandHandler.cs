@@ -1,110 +1,147 @@
 ﻿using LoanWise.Application.Common.Interfaces;
 using LoanWise.Application.Features.Loans.Commands.DisburseLoan;
+using LoanWise.Domain.Entities;
 using LoanWise.Domain.Enums;
 using MediatR;
-using Microsoft.EntityFrameworkCore; // for DbUpdateConcurrencyException
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using StoreBoost.Application.Common.Models;
 
-public class DisburseLoanCommandHandler : IRequestHandler<DisburseLoanCommand, ApiResponse<Guid>>
+public sealed class DisburseLoanCommandHandler
+    : IRequestHandler<DisburseLoanCommand, ApiResponse<Guid>>
 {
-    private readonly ILoanRepository _loanRepository;
-    private readonly ILogger<DisburseLoanCommandHandler> _logger;
-    private readonly IMediator _mediator; // keep injected for domain notifications if not dispatched by DbContext
+    private readonly IApplicationDbContext _db;
+    private readonly ILogger<DisburseLoanCommandHandler> _log;
 
     public DisburseLoanCommandHandler(
-        ILoanRepository loanRepository,
-        ILogger<DisburseLoanCommandHandler> logger,
-        IMediator mediator)
+        IApplicationDbContext db,
+        ILogger<DisburseLoanCommandHandler> log)
     {
-        _loanRepository = loanRepository;
-        _logger = logger;
-        _mediator = mediator;
+        _db = db;
+        _log = log;
     }
 
     public async Task<ApiResponse<Guid>> Handle(DisburseLoanCommand request, CancellationToken ct)
     {
-        // Load tracked (no AsNoTracking) so EF has original values/concurrency token.
-        var loan = await _loanRepository.GetByIdWithRepaymentsAsync(request.LoanId, ct);
-        if (loan is null)
+        // We need the concrete DbContext to use transactions & tracking APIs
+        if (_db is not DbContext ef)
         {
-            _logger.LogWarning("Disbursement failed: Loan {LoanId} not found", request.LoanId);
-            return ApiResponse<Guid>.FailureResult("Loan not found.");
+            _log.LogError("IApplicationDbContext is not backed by a DbContext.");
+            return ApiResponse<Guid>.FailureResult("Server configuration error.");
         }
 
-        // Friendly guardrails (aggregate will also protect itself).
-        if (loan.Status == LoanStatus.Rejected)
-            return ApiResponse<Guid>.FailureResult("Cannot disburse a rejected loan.");
-
-        // Idempotency: if already disbursed, ensure schedule exists and return success.
-        if (loan.Status == LoanStatus.Disbursed)
+        try
         {
-            var existing = loan.Repayments?.Count ?? 0;
-            if (existing == 0)
+            await using var tx = await ef.Database.BeginTransactionAsync(ct);
+
+            // Load TRACKED (no AsNoTracking here on a command path)
+            var loan = await ef.Set<Loan>()
+                .FirstOrDefaultAsync(l => l.Id == request.LoanId, ct);
+
+            if (loan is null)
+                return ApiResponse<Guid>.FailureResult("Loan not found.");
+
+            // Idempotent fast-path: already disbursed → ensure schedule exists & exit
+            if (loan.Status == LoanStatus.Disbursed)
             {
-                loan.GenerateRepaymentSchedule(); // safe now because status is Disbursed
-                try
+                var hasSchedule = await ef.Set<Repayment>()
+                    .AnyAsync(r => r.LoanId == loan.Id, ct);
+
+                if (!hasSchedule)
                 {
-                    // IMPORTANT: UpdateAsync must NOT call DbSet.Update() for tracked entities.
-                    await _loanRepository.UpdateAsync(loan, ct);
-
-                    _logger.LogInformation(
-                        "Loan {LoanId} already disbursed; generated missing schedule ({Count} installments).",
-                        loan.Id, loan.Repayments?.Count ?? 0);
-
-                    return ApiResponse<Guid>.SuccessResult(
-                        loan.Id,
-                        $"Repayment schedule generated ({loan.Repayments?.Count ?? 0} installments)."
-                    );
+                    var newItems = BuildEqualInstallments(loan);
+                    await ef.Set<Repayment>().AddRangeAsync(newItems, ct);
+                    await ef.SaveChangesAsync(ct); // inserts only the new repayments
                 }
-                catch (DbUpdateConcurrencyException)
+
+                await tx.CommitAsync(ct);
+                var count = await ef.Set<Repayment>().CountAsync(r => r.LoanId == loan.Id, ct);
+                return ApiResponse<Guid>.SuccessResult(
+                    loan.Id, $"Loan already disbursed; {count} installments exist.");
+            }
+
+            // Guard: must be funded
+            if (loan.Status != LoanStatus.Funded)
+            {
+                await tx.RollbackAsync(ct);
+                return ApiResponse<Guid>.FailureResult("Loan is not fully funded yet.");
+            }
+
+            // State transition (raises domain event inside aggregate)
+            loan.Disburse();
+
+            // Persist the loan row first (updates RowVersion)
+            await ef.SaveChangesAsync(ct);
+
+            // Create schedule ONLY if it doesn't exist (INSERTs; no mass UPDATEs)
+            var exists = await ef.Set<Repayment>().AnyAsync(r => r.LoanId == loan.Id, ct);
+            if (!exists)
+            {
+                var items = BuildEqualInstallments(loan);
+                await ef.Set<Repayment>().AddRangeAsync(items, ct);
+                await ef.SaveChangesAsync(ct);
+            }
+
+            await tx.CommitAsync(ct);
+
+            var total = await ef.Set<Repayment>().CountAsync(r => r.LoanId == loan.Id, ct);
+            return ApiResponse<Guid>.SuccessResult(
+                loan.Id, $"Loan disbursed; {total} installments generated.");
+        }
+        catch (DbUpdateConcurrencyException ex)
+        {
+            // Someone bumped RowVersion while we were saving the loan.
+            _log.LogWarning(ex, "Concurrency while disbursing {LoanId}", request.LoanId);
+
+            // Reload and return a clean outcome if another process already finished.
+            if (_db is DbContext ef2)
+            {
+                var reloaded = await ef2.Set<Loan>()
+                    .AsTracking()
+                    .FirstOrDefaultAsync(l => l.Id == request.LoanId, ct);
+
+                if (reloaded is not null && reloaded.Status == LoanStatus.Disbursed)
                 {
-                    _logger.LogWarning("Concurrency conflict while generating missing schedule for loan {LoanId}", loan.Id);
-                    return ApiResponse<Guid>.FailureResult("Conflict: loan was modified by another process. Please retry.");
+                    var hasSchedule = await ef2.Set<Repayment>().AnyAsync(r => r.LoanId == reloaded.Id, ct);
+                    if (!hasSchedule)
+                    {
+                        var items = BuildEqualInstallments(reloaded);
+                        await ef2.Set<Repayment>().AddRangeAsync(items, ct);
+                        await ef2.SaveChangesAsync(ct);
+                    }
+
+                    var total = await ef2.Set<Repayment>().CountAsync(r => r.LoanId == reloaded.Id, ct);
+                    return ApiResponse<Guid>.SuccessResult(
+                        reloaded.Id,
+                        $"Loan already disbursed by another process; {total} installments exist.");
                 }
             }
 
-            _logger.LogInformation("Loan {LoanId} already disbursed; schedule exists ({Count} installments).",
-                loan.Id, existing);
-
-            return ApiResponse<Guid>.SuccessResult(
-                loan.Id,
-                $"Loan already disbursed; {existing} installments exist."
-            );
-        }
-
-        // Normal path: Funded -> Disbursed + schedule
-        try
-        {
-            loan.Disburse();                  // aggregate state change (may raise domain event)
-            loan.GenerateRepaymentSchedule(); // requires Disbursed state
-
-            // Persist tracked changes. Implementation detail:
-            // - If entity is tracked, UpdateAsync should simply SaveChangesAsync(ct).
-            await _loanRepository.UpdateAsync(loan, ct);
-
-            _logger.LogInformation("Loan {LoanId} disbursed; schedule generated ({Count} installments).",
-                loan.Id, loan.Repayments.Count);
-
-            // If your DbContext does NOT dispatch domain events on SaveChanges,
-            // publish them explicitly here via _mediator.Publish(...).
-
-            return ApiResponse<Guid>.SuccessResult(
-                loan.Id,
-                $"Loan disbursed; {loan.Repayments.Count} installments generated."
-            );
+            // If we’re here, it’s a real edit conflict the client should just retry.
+            return ApiResponse<Guid>.FailureResult(
+                "Conflict: loan was modified by another process. Please retry.");
         }
         catch (InvalidOperationException ex)
         {
-            // e.g., Disburse() guard failures
-            _logger.LogWarning("Disbursement rejected for loan {LoanId}: {Message}", loan.Id, ex.Message);
+            // Domain guard failures (e.g., calling Disburse in the wrong state)
+            _log.LogWarning("Disbursement rejected: {Message}", ex.Message);
             return ApiResponse<Guid>.FailureResult(ex.Message);
         }
-        catch (DbUpdateConcurrencyException)
+    }
+
+    private static IEnumerable<Repayment> BuildEqualInstallments(Loan loan)
+    {
+        // Build repayments without touching the navigation collection to avoid EF marking existing rows Modified
+        var monthly = Math.Round(loan.Amount / loan.DurationInMonths, 2, MidpointRounding.AwayFromZero);
+        var start = (loan.DisbursedAtUtc ?? DateTime.UtcNow).Date;
+
+        for (int i = 1; i <= loan.DurationInMonths; i++)
         {
-            // Map to a clear, user-facing message; your middleware can translate to HTTP 409.
-            _logger.LogWarning("Concurrency conflict while disbursing loan {LoanId}", loan.Id);
-            return ApiResponse<Guid>.FailureResult("Conflict: loan was modified by another process. Please retry.");
+            yield return new Repayment(
+                id: Guid.NewGuid(),
+                loanId: loan.Id,
+                dueDate: start.AddMonths(i),
+                amount: monthly);
         }
     }
 }
