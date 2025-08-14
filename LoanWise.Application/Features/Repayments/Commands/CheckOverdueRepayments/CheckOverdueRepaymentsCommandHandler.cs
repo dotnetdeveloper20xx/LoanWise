@@ -3,6 +3,7 @@ using LoanWise.Application.Common.Interfaces;
 using LoanWise.Application.Features.Repayments.Commands.CheckOverdueRepayments;
 using LoanWise.Domain.Events;
 using MediatR;
+using Microsoft.EntityFrameworkCore;
 using StoreBoost.Application.Common.Models; // ApiResponse<T>
 
 namespace LoanWise.Application.Features.Repayments.Commands.CheckOverdue
@@ -24,35 +25,31 @@ namespace LoanWise.Application.Features.Repayments.Commands.CheckOverdue
             _db = db;
         }
 
+        // using Microsoft.EntityFrameworkCore;
+
         public async Task<ApiResponse<int>> Handle(CheckOverdueRepaymentsCommand request, CancellationToken ct)
         {
-            var nowDate = DateTime.UtcNow.Date;
-            var loansWithRepayments = await _loans.GetLoansWithRepaymentsAsync(ct);
+            var today = DateTime.UtcNow.Date;
 
-            var overdueItems = loansWithRepayments
-                .SelectMany(l => l.Repayments.Select(r => (loan: l, r)))
-                .Where(x =>
-                    !x.r.IsPaid &&
-                    x.r.DueDate.Date < nowDate &&
-                    x.r.OverdueNotifiedAtUtc == null) // remove this check if you didn't add the flag
-                .ToList();
+            // Unpaid, past-due, not yet notified
+            var reps = await _db.Repayments
+                .Where(r => !r.IsPaid && r.DueDate < today && r.OverdueNotifiedAtUtc == null)
+                .OrderBy(r => r.DueDate)
+                .ToListAsync(ct);
 
-            foreach (var item in overdueItems)
+            var now = DateTime.UtcNow;
+            foreach (var r in reps)
             {
-                // raise event
-                await _mediator.Publish(new RepaymentOverdueEvent(
-                    item.loan.Id,
-                    item.r.Id,
-                    item.r.DueDate
-                ), ct);
+                // raise domain event (keeps your existing behavior)
+                await _mediator.Publish(new RepaymentOverdueEvent(r.LoanId, r.Id, r.DueDate), ct);
 
-                // mark to avoid duplicate notifications next run
-                item.r.MarkOverdueNotified(DateTime.UtcNow);
-                await _loans.UpdateAsync(item.loan, ct); // persist change per loan
+                r.MarkOverdue();                // raises domain event inside (OK if you prefer one or the other)
+                r.MarkOverdueNotified(now);     // latch to avoid duplicate notifications next runs
             }
 
             await _db.SaveChangesAsync(ct);
-            return ApiResponse<int>.SuccessResult(overdueItems.Count, $"Overdue checked. Raised {overdueItems.Count} event(s).");
+            return ApiResponse<int>.SuccessResult(reps.Count, $"Overdue checked. Raised {reps.Count} event(s).");
         }
+
     }
 }

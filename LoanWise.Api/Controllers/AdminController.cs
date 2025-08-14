@@ -112,16 +112,13 @@ namespace LoanWise.Api.Controllers
         /// Triggers overdue checks for all repayments across all loans.
         /// </summary>
         [HttpPost("repayments/check-overdue")]
-        [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [Authorize(Roles = "Admin")]
+        [ProducesResponseType(typeof(ApiResponse<int>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse<int>), StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> CheckOverdueRepayments(CancellationToken ct = default)
         {
-            _logger.LogInformation("Admin overdue repayment check initiated by {Admin}", User?.Identity?.Name);
-
-            var response = await _mediator.Send(new CheckOverdueRepaymentsCommand(), ct);
-            return response.Success ? Ok(response) : BadRequest(response);
+            var res = await _mediator.Send(new CheckOverdueRepaymentsCommand(), ct);
+            return res.Success ? Ok(res) : BadRequest(res);
         }
 
         // -------------------------------
