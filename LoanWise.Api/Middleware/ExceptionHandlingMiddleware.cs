@@ -1,29 +1,35 @@
 ﻿// LoanWise.API/Middlewares/ExceptionHandlingMiddleware.cs
-using System.Net;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Logging;
+using System.Net;
 using System.Text.Json;
 
 namespace LoanWise.API.Middlewares
 {
-    public sealed class ExceptionHandlingMiddleware : IMiddleware
+    public sealed class ExceptionHandlingMiddleware
     {
+        private readonly RequestDelegate _next;
         private readonly ILogger<ExceptionHandlingMiddleware> _logger;
-        public ExceptionHandlingMiddleware(ILogger<ExceptionHandlingMiddleware> logger) => _logger = logger;
 
-        public async Task InvokeAsync(HttpContext context, RequestDelegate next)
+        public ExceptionHandlingMiddleware(RequestDelegate next, ILogger<ExceptionHandlingMiddleware> logger)
+        {
+            _next = next;
+            _logger = logger;
+        }
+
+        public async Task InvokeAsync(HttpContext context)
         {
             try
             {
-                await next(context);
+                await _next(context);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Unhandled exception");
+
                 var problem = CreateProblemDetails(context, ex);
                 context.Response.ContentType = "application/problem+json";
                 context.Response.StatusCode = problem.Status ?? (int)HttpStatusCode.InternalServerError;
+
                 await context.Response.WriteAsync(JsonSerializer.Serialize(problem));
             }
         }
