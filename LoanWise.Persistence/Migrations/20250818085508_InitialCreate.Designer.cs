@@ -12,7 +12,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace LoanWise.Persistence.Migrations
 {
     [DbContext(typeof(LoanWiseDbContext))]
-    [Migration("20250814144952_InitialCreate")]
+    [Migration("20250818085508_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -208,6 +208,9 @@ namespace LoanWise.Persistence.Migrations
 
                     b.Property<int>("DurationInMonths")
                         .HasColumnType("int");
+
+                    b.Property<bool>("IsVisibleToLenders")
+                        .HasColumnType("bit");
 
                     b.Property<int>("Purpose")
                         .HasColumnType("int");

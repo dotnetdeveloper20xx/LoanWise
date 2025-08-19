@@ -1,4 +1,5 @@
 ﻿using LoanWise.Application.Common.Interfaces;
+using LoanWise.Application.Features.Loans.DTOs;
 using LoanWise.Domain.Entities;
 using LoanWise.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
@@ -11,10 +12,12 @@ namespace LoanWise.Infrastructure.Repositories
     public class LoanRepository : ILoanRepository
     {
         private readonly IApplicationDbContext _context;
+        private readonly IUserContext _currentUser;
 
-        public LoanRepository(IApplicationDbContext context)
+        public LoanRepository(IApplicationDbContext context, IUserContext currentUser)
         {
             _context = context;
+            _currentUser = currentUser;
         }
 
         public async Task AddAsync(Loan loan, CancellationToken cancellationToken)
@@ -33,8 +36,7 @@ namespace LoanWise.Infrastructure.Repositories
                 _context.Loans.Attach(loan);
                 entry.State = EntityState.Modified;
             }
-            // If it's already tracked, we changed properties on the tracked instance,
-            // so SaveChanges is all we need.
+
             await _context.SaveChangesAsync(cancellationToken);
         }
 
@@ -53,18 +55,58 @@ namespace LoanWise.Infrastructure.Repositories
                 .FirstOrDefaultAsync(l => l.Id == loanId, cancellationToken);
         }
 
-
-        public async Task<IReadOnlyList<Loan>> GetOpenLoansAsync(CancellationToken ct)
+        /// <summary>
+        /// Returns "open" loans:
+        /// - Status is Approved or Funded
+        /// - NOT Disbursed and NOT Cancelled
+        /// - Remaining amount &gt; 0 (Funded &lt; Amount)
+        /// Visibility:
+        /// - Admin: sees all open loans
+        /// - Non-admin (e.g., Lender): restricted to IsVisibleToLenders
+        /// </summary>
+        public async Task<IReadOnlyList<LoanSummaryDto>> GetOpenLoansAsync(CancellationToken ct)
         {
-            return await _context.Loans
+            var isAdmin = _currentUser.IsInRole("Admin");
+
+            // Base "open" definition
+            var query = _context.Loans
                 .AsNoTracking()
-                .Include(l => l.Fundings) // so mapping can use l.Fundings.Sum(...)
-                .Where(l => l.Status == LoanStatus.Approved)
-                .Where(l => (l.Fundings.Select(f => (decimal?)f.Amount).Sum() ?? 0m) < l.Amount) // still has remaining
-                .OrderBy(l => l.Amount - (l.Fundings.Select(f => (decimal?)f.Amount).Sum() ?? 0m)) // smallest remaining first
+                .Select(l => new
+                {
+                    l.Id,
+                    l.BorrowerId,
+                    l.Amount,
+                    Funded = l.Fundings.Select(f => (decimal?)f.Amount).Sum() ?? 0m,
+                    l.DurationInMonths,
+                    l.Purpose,
+                    l.Status,
+                    l.IsVisibleToLenders
+                })
+                .Where(x =>
+                    (x.Status == LoanStatus.Approved || x.Status == LoanStatus.Funded) &&
+                    x.Status != LoanStatus.Disbursed 
+                     &&  x.Funded < x.Amount);
+
+            // Only restrict marketplace visibility for non-admins
+            if (!isAdmin)
+            {
+                query = query.Where(x => x.IsVisibleToLenders);
+            }
+
+            return await query
+                .OrderBy(x => x.Amount - x.Funded) // smallest remaining first
+                .Select(x => new LoanSummaryDto
+                {
+                    LoanId = x.Id,
+                    BorrowerId = x.BorrowerId,
+                    Amount = x.Amount,
+                    FundedAmount = x.Funded,
+                    DurationInMonths = x.DurationInMonths,
+                    Purpose = x.Purpose,
+                    Status = x.Status
+                })
                 .ToListAsync(ct);
         }
-
 
         public async Task<IReadOnlyList<Loan>> GetLoansByBorrowerAsync(Guid borrowerId, CancellationToken cancellationToken)
         {
@@ -108,12 +150,12 @@ namespace LoanWise.Infrastructure.Repositories
                 .AsNoTracking()
                 .ToListAsync(cancellationToken);
         }
-      
+
         public async Task<Loan?> GetByIdWithRepaymentsAsync(Guid id, CancellationToken ct)
         {
-            return await _context.Loans                   
-                    .Include(l => l.Repayments)
-                    .FirstOrDefaultAsync(l => l.Id == id, ct);
+            return await _context.Loans
+                .Include(l => l.Repayments)
+                .FirstOrDefaultAsync(l => l.Id == id, ct);
         }
 
         public async Task<Loan?> GetLoanByRepaymentIdWithFundingsAsync(Guid repaymentId, CancellationToken ct)
@@ -123,6 +165,5 @@ namespace LoanWise.Infrastructure.Repositories
                 .Include(l => l.Fundings)
                 .FirstOrDefaultAsync(l => l.Repayments.Any(r => r.Id == repaymentId), ct);
         }
-
     }
 }

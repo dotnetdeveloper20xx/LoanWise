@@ -8,5 +8,6 @@ namespace LoanWise.Application.Common.Interfaces
         string? Email { get; }
         string? Role { get; }
         bool IsAuthenticated { get; }
+        bool IsInRole(string v);
     }
 }

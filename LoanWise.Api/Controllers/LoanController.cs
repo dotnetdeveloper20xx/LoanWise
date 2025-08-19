@@ -56,7 +56,7 @@ namespace LoanWise.Api.Controllers
         /// Lenders can browse open (approved & not fully funded) loans.
         /// </summary>
         [HttpGet("open")]
-        [Authorize(Roles = "Lender")]
+        [Authorize(Roles = "Lender, Admin")]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
         public async Task<IActionResult> GetOpenLoans(CancellationToken ct)
         {

@@ -22,6 +22,7 @@ using Serilog;
 
 using System.Reflection;
 using System.Text;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -50,8 +51,10 @@ builder.Services.AddControllers()
     {
         o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
         o.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingDefault;
-        o.JsonSerializerOptions.PropertyNamingPolicy = null; // keep DTO casing stable if desired
+        o.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+        o.JsonSerializerOptions.DictionaryKeyPolicy = JsonNamingPolicy.CamelCase;
     });
+
 
 // ─────────────────────────────────────────────
 // API Versioning + Explorer
@@ -198,6 +201,23 @@ builder.Services.AddScoped<INotificationService>(sp =>
     return new CompositeNotificationService(signalr, email);
 });
 
+
+// ─────────────────────────────────────────────
+// Cors for Front End
+// ─────────────────────────────────────────────
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowLocal5173",
+        policy =>
+        {
+            policy.WithOrigins("http://localhost:5173")
+                  .AllowAnyHeader()
+                  .AllowAnyMethod()
+                  .AllowCredentials();
+        });
+});
+
+
 // ─────────────────────────────────────────────
 // Build app
 // ─────────────────────────────────────────────
@@ -247,6 +267,10 @@ if (app.Environment.IsDevelopment())
     });
 }
 
+
+//use cors
+app.UseCors("AllowLocal5173");
+
 // ─────────────────────────────────────────────
 // Middleware pipeline
 // ─────────────────────────────────────────────
@@ -264,8 +288,11 @@ app.Use(async (ctx, next) =>
 // Global exception handler (ProblemDetails)
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 
+
+
 app.UseRouting();
 app.UseRateLimiter();
+
 app.UseAuthentication();
 app.UseAuthorization();
 

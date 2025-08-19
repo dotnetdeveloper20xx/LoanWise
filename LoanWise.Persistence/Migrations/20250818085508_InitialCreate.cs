@@ -100,7 +100,8 @@ namespace LoanWise.Persistence.Migrations
                     ApprovedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: true),
                     CreatedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: false),
                     DisbursedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: true),
-                    RowVersion = table.Column<byte[]>(type: "rowversion", rowVersion: true, nullable: false)
+                    RowVersion = table.Column<byte[]>(type: "rowversion", rowVersion: true, nullable: false),
+                    IsVisibleToLenders = table.Column<bool>(type: "bit", nullable: false)
                 },
                 constraints: table =>
                 {

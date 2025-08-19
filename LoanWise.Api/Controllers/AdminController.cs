@@ -54,10 +54,14 @@ namespace LoanWise.Api.Controllers
 
         /// <summary>
         /// Request body for updating the active status of a user account.
-        /// </summary>
-        public sealed record UpdateUserStatusRequest(
-            [property: Required] bool IsActive
-        );
+        /// </summary>       
+
+        public sealed class UpdateUserStatusRequest
+        {
+            [Required] public Guid UserId { get; init; }
+            [Required] public bool IsActive { get; init; }
+        }
+
 
         // -------------------------------
         // Loans: Approve / Reject
@@ -157,5 +161,10 @@ namespace LoanWise.Api.Controllers
             var result = await _mediator.Send(new UpdateUserStatusCommand(id, body.IsActive), ct);
             return result.Success ? Ok(result) : BadRequest(result);
         }
+
+        [HttpGet("users/ping")]
+        [AllowAnonymous] // temp
+        public IActionResult Ping() => Ok("admin-ok");
+
     }
 }

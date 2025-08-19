@@ -20,7 +20,10 @@ namespace LoanWise.Application.Common.Interfaces
         Task<Loan?> GetByIdAsync(Guid loanId, CancellationToken cancellationToken);
 
         /// <summary>Retrieves all open loan requests (not yet fully funded or disbursed).</summary>
-        Task<IReadOnlyList<Loan>> GetOpenLoansAsync(CancellationToken cancellationToken);
+        //Task<IReadOnlyList<Loan>> GetOpenLoansAsync(CancellationToken cancellationToken);
+
+        Task<IReadOnlyList<LoanSummaryDto>> GetOpenLoansAsync(CancellationToken ct);
+
 
         /// <summary>Retrieves all loans submitted by a specific borrower.</summary>
         Task<IReadOnlyList<Loan>> GetLoansByBorrowerAsync(Guid borrowerId, CancellationToken cancellationToken);

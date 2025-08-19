@@ -38,12 +38,18 @@ namespace LoanWise.Domain.Entities
 
         public byte[] RowVersion { get; private set; } = Array.Empty<byte>();
 
+        /// <summary>
+        /// Whether this loan is listed on the lender marketplace.
+        /// Controlled by aggregate invariants; use PublishToMarketplace/HideFromMarketplace.
+        /// </summary>
+        public bool IsVisibleToLenders { get; private set; }  // <- private set: aggregate controls the flag
+
         // EF
         private Loan() { }
 
         public Loan(Guid id, Guid borrowerId, decimal amount, int durationInMonths, LoanPurpose purpose)
         {
-            if (amount == 0) throw new ArgumentOutOfRangeException(nameof(durationInMonths), "Loan amount must be > 0.");
+            if (amount <= 0) throw new ArgumentOutOfRangeException(nameof(amount), "Loan amount must be > 0.");
             if (durationInMonths <= 0) throw new ArgumentOutOfRangeException(nameof(durationInMonths), "Duration must be > 0.");
 
             Id = id;
@@ -55,11 +61,14 @@ namespace LoanWise.Domain.Entities
             Status = LoanStatus.Pending;
             RiskLevel = RiskLevel.Unknown;
             CreatedAtUtc = DateTime.UtcNow;
+
+            // Pending loans are not visible.
+            IsVisibleToLenders = false;
         }
 
         /// <summary>
         /// Approve a pending loan with a calculated risk level.
-        /// Raises LoanApprovedEvent.
+        /// Raises LoanApprovedEvent. Makes the loan visible if eligible.
         /// </summary>
         public void Approve(RiskLevel riskLevel)
         {
@@ -70,12 +79,13 @@ namespace LoanWise.Domain.Entities
             Status = LoanStatus.Approved;
             ApprovedAtUtc = DateTime.UtcNow;
 
+            ReevaluateVisibility();
             AddDomainEvent(new LoanApprovedEvent(Id, BorrowerId));
         }
 
         /// <summary>
         /// Reject a pending loan with a reason.
-        /// Raises LoanRejectedEvent.
+        /// Raises LoanRejectedEvent. Hides the loan.
         /// </summary>
         public void Reject(string reason)
         {
@@ -86,12 +96,13 @@ namespace LoanWise.Domain.Entities
             RejectedReason = reason;
             RejectedAtUtc = DateTime.UtcNow;
 
+            HideFromMarketplace();
             AddDomainEvent(new LoanRejectedEvent(Id, BorrowerId, reason));
         }
 
         /// <summary>
-        /// Add a new funding contribution. Also checks if the loan has just become fully funded
-        /// and, if appropriate, transitions to Funded and raises LoanFundedEvent.
+        /// Add a new funding contribution. If the loan just became fully funded,
+        /// flip to Funded (when previously Approved) and hide from marketplace.
         /// </summary>
         public void AddFunding(Funding funding)
         {
@@ -118,6 +129,9 @@ namespace LoanWise.Domain.Entities
                     true
                 ));
             }
+
+            // Visibility: hide once fully funded; otherwise keep based on eligibility.
+            ReevaluateVisibility();
         }
 
         public void AddRepayment(Repayment repayment)
@@ -137,7 +151,7 @@ namespace LoanWise.Domain.Entities
 
         /// <summary>
         /// Re-evaluates funding status. If loan is Approved and now fully funded, transitions to Funded and raises event.
-        /// Useful after bulk operations or seed scripts.
+        /// Also re-evaluates marketplace visibility.
         /// </summary>
         public void UpdateFundingStatus(Funding latestFunding)
         {
@@ -152,12 +166,13 @@ namespace LoanWise.Domain.Entities
                     true
                 ));
             }
-        }
 
+            ReevaluateVisibility();
+        }
 
         /// <summary>
         /// Marks the loan as disbursed. Only valid from Funded.
-        /// Raises LoanDisbursedEvent.
+        /// Raises LoanDisbursedEvent. Hides the loan.
         /// </summary>
         public void Disburse()
         {
@@ -167,6 +182,7 @@ namespace LoanWise.Domain.Entities
             Status = LoanStatus.Disbursed;
             DisbursedAtUtc = DateTime.UtcNow;
 
+            HideFromMarketplace();
             AddDomainEvent(new LoanDisbursedEvent(Id, DisbursedAtUtc.Value));
         }
 
@@ -195,25 +211,64 @@ namespace LoanWise.Domain.Entities
         }
 
         /// <summary>
-        /// Optional helper to scan for overdue repayments. We keep event raising out for now;
-        /// overdue alerts are better emitted by a scheduled job that publishes events daily.
+        /// Optional helper to scan for overdue repayments.
         /// </summary>
         public void MarkOverdueRepayments(DateTime currentDate)
         {
             foreach (var repayment in _repayments)
             {
                 _ = repayment.IsOverdue(currentDate);
-                // If you want inline events instead of scheduler:
-                // if (repayment.IsOverdue(currentDate))
-                //     AddDomainEvent(new RepaymentOverdueEvent(Id, BorrowerId, repayment.Id, repayment.DueDate, repayment.RepaymentAmount));
             }
+        }
+
+        // --------- Marketplace visibility logic ---------
+
+        /// <summary>
+        /// True when the loan qualifies to be listed for lenders:
+        /// - Status is Approved or Funded
+        /// - Not Disbursed and not Cancelled/Rejected
+        /// - Not fully funded
+        /// </summary>
+        public bool IsMarketEligible()
+        {
+            if (Status == LoanStatus.Disbursed || Status == LoanStatus.Cancelled || Status == LoanStatus.Rejected)
+                return false;
+
+            var statusOk = Status == LoanStatus.Approved || Status == LoanStatus.Funded;
+            if (!statusOk) return false;
+
+            return !IsFullyFunded();
+        }
+
+        /// <summary>
+        /// Sets visibility to true only if eligible.
+        /// </summary>
+        public void PublishToMarketplace()
+        {
+            IsVisibleToLenders = IsMarketEligible();
+        }
+
+        /// <summary>
+        /// Unlists the loan from the marketplace.
+        /// </summary>
+        public void HideFromMarketplace()
+        {
+            IsVisibleToLenders = false;
+        }
+
+        /// <summary>
+        /// Centralized visibility recalculation (call after state/funding changes).
+        /// </summary>
+        private void ReevaluateVisibility()
+        {
+            if (IsMarketEligible())
+                IsVisibleToLenders = true;
+            else
+                IsVisibleToLenders = false;
         }
 
         // --------- Legacy helpers (prefer Approve/Reject which raise events) ---------
 
-        /// <summary>
-        /// Prefer <see cref="Approve(RiskLevel)"/> which raises domain events.
-        /// </summary>
         public void SetApproved()
         {
             if (Status == LoanStatus.Approved) return;
@@ -222,12 +277,11 @@ namespace LoanWise.Domain.Entities
 
             Status = LoanStatus.Approved;
             ApprovedAtUtc = DateTime.UtcNow;
+
+            ReevaluateVisibility();
             AddDomainEvent(new LoanApprovedEvent(Id, BorrowerId));
         }
 
-        /// <summary>
-        /// Prefer <see cref="Reject(string)"/> which raises domain events.
-        /// </summary>
         public void SetRejected(string? reason)
         {
             if (Status == LoanStatus.Rejected) return;
@@ -237,6 +291,8 @@ namespace LoanWise.Domain.Entities
             Status = LoanStatus.Rejected;
             RejectedReason = reason;
             RejectedAtUtc = DateTime.UtcNow;
+
+            HideFromMarketplace();
             AddDomainEvent(new LoanRejectedEvent(Id, BorrowerId, reason ?? string.Empty));
         }
     }

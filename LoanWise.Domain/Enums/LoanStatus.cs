@@ -33,6 +33,8 @@
         /// <summary>
         /// All repayments have been made and the loan is complete.
         /// </summary>
-        Completed = 5
+        Completed = 5,
+
+        Cancelled = 6
     }
 }

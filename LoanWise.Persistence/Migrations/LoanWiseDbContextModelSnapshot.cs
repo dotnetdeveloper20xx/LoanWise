@@ -206,6 +206,9 @@ namespace LoanWise.Persistence.Migrations
                     b.Property<int>("DurationInMonths")
                         .HasColumnType("int");
 
+                    b.Property<bool>("IsVisibleToLenders")
+                        .HasColumnType("bit");
+
                     b.Property<int>("Purpose")
                         .HasColumnType("int");
 
