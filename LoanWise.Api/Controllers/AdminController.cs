@@ -57,8 +57,7 @@ namespace LoanWise.Api.Controllers
         /// </summary>       
 
         public sealed class UpdateUserStatusRequest
-        {
-            [Required] public Guid UserId { get; init; }
+        {           
             [Required] public bool IsActive { get; init; }
         }
 
@@ -157,7 +156,6 @@ namespace LoanWise.Api.Controllers
         public async Task<IActionResult> UpdateUserStatus(Guid id, [FromBody] UpdateUserStatusRequest body, CancellationToken ct = default)
         {
             _logger.LogInformation("Admin updating user {UserId} IsActive={IsActive}", id, body.IsActive);
-
             var result = await _mediator.Send(new UpdateUserStatusCommand(id, body.IsActive), ct);
             return result.Success ? Ok(result) : BadRequest(result);
         }

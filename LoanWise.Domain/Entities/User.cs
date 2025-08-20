@@ -60,6 +60,8 @@ namespace LoanWise.Domain.Entities
 
         public bool IsActive { get; set; }
 
+        public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
+
         public User() { }
 
         public User(Guid id, string fullName, string email, string passwordHash, UserRole role)

@@ -30,8 +30,7 @@ var builder = WebApplication.CreateBuilder(args);
 // ─────────────────────────────────────────────
 // Logging (Serilog)
 // ─────────────────────────────────────────────
-builder.Host.UseSerilog((ctx, lc) =>
-    lc.ReadFrom.Configuration(ctx.Configuration));
+builder.Host.UseSerilog((ctx, lc) => lc.ReadFrom.Configuration(ctx.Configuration));
 
 // ─────────────────────────────────────────────
 // Register application layers (Clean Architecture)
@@ -45,7 +44,6 @@ builder.Services
 // MVC + JSON settings
 // ─────────────────────────────────────────────
 builder.Services.AddRouting(o => o.LowercaseUrls = true);
-
 builder.Services.AddControllers()
     .AddJsonOptions(o =>
     {
@@ -54,7 +52,6 @@ builder.Services.AddControllers()
         o.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
         o.JsonSerializerOptions.DictionaryKeyPolicy = JsonNamingPolicy.CamelCase;
     });
-
 
 // ─────────────────────────────────────────────
 // API Versioning + Explorer
@@ -79,13 +76,11 @@ builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo { Title = "LoanWise API", Version = "v1" });
 
-    // Include XML comments if generated
     var xmlName = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
     var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlName);
     if (File.Exists(xmlPath))
         c.IncludeXmlComments(xmlPath, includeControllerXmlComments: true);
 
-    // JWT bearer
     var jwtScheme = new OpenApiSecurityScheme
     {
         Name = "Authorization",
@@ -111,7 +106,7 @@ builder.Services.AddSingleton<IUserIdProvider, SignalRUserIdProvider>();
 // ─────────────────────────────────────────────
 var issuer = builder.Configuration["Jwt:Issuer"];
 var audience = builder.Configuration["Jwt:Audience"] ?? issuer;
-var key = builder.Configuration["Jwt:Key"] ?? "super-secret-key"; // TODO: move to Key Vault for prod
+var key = builder.Configuration["Jwt:Key"] ?? "super-secret-key"; // TODO: Key Vault for prod
 var keyBytes = Encoding.UTF8.GetBytes(key);
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -166,7 +161,7 @@ builder.Services.AddHealthChecks()
     .AddDbContextCheck<LoanWiseDbContext>("database", HealthStatus.Unhealthy, new[] { "ready" });
 
 // ─────────────────────────────────────────────
-// OpenTelemetry (minimal tracing)
+// OpenTelemetry (ASP.NET + HttpClient + optional EFCore)
 // ─────────────────────────────────────────────
 builder.Services.AddOpenTelemetry()
   .ConfigureResource(r => r.AddService("LoanWise.API"))
@@ -174,20 +169,16 @@ builder.Services.AddOpenTelemetry()
   {
       t.AddAspNetCoreInstrumentation();
       t.AddHttpClientInstrumentation();
-
-      //// Optionally add SQL/EF instrumentation here
-      ///
-      //t..AddEntityFrameworkCoreInstrumentation(options =>
+      // Requires OpenTelemetry.Instrumentation.EntityFrameworkCore package
+      //t.AddEntityFrameworkCoreInstrumentation(o =>
       //{
-      //    options.SetDbStatementForText = true;             // Include SQL text
-      //    options.SetDbStatementForStoredProcedure = true;  // Include stored proc text
+      //    o.SetDbStatementForText = true;
+      //    o.SetDbStatementForStoredProcedure = true;
       //});
 
-      //// Optional: export to Azure Monitor / Application Insights
+      // Optional: export to Azure Monitor / App Insights
       // t.AddAzureMonitorTraceExporter(o =>
       //     o.ConnectionString = builder.Configuration["OpenTelemetry:AzureMonitorConnectionString"]);
-
-
   });
 
 // ─────────────────────────────────────────────
@@ -201,22 +192,24 @@ builder.Services.AddScoped<INotificationService>(sp =>
     return new CompositeNotificationService(signalr, email);
 });
 
+// ─────────────────────────────────────────────
+// CORS (configurable; defaults for Vite 5173 http/https)
+// ─────────────────────────────────────────────
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
+                     ?? new[] { "http://localhost:5173", "https://localhost:5173" };
 
-// ─────────────────────────────────────────────
-// Cors for Front End
-// ─────────────────────────────────────────────
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowLocal5173",
-        policy =>
-        {
-            policy.WithOrigins("http://localhost:5173")
-                  .AllowAnyHeader()
-                  .AllowAnyMethod()
-                  .AllowCredentials();
-        });
+    options.AddPolicy("Frontend", policy =>
+    {
+        policy.WithOrigins(allowedOrigins)
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials()
+              .WithExposedHeaders("Content-Disposition")
+              .SetPreflightMaxAge(TimeSpan.FromHours(1));
+    });
 });
-
 
 // ─────────────────────────────────────────────
 // Build app
@@ -255,7 +248,7 @@ using (var scope = app.Services.CreateScope())
 }
 
 // ─────────────────────────────────────────────
-// Swagger
+// Swagger (dev)
 // ─────────────────────────────────────────────
 if (app.Environment.IsDevelopment())
 {
@@ -267,14 +260,20 @@ if (app.Environment.IsDevelopment())
     });
 }
 
-
-//use cors
-app.UseCors("AllowLocal5173");
-
 // ─────────────────────────────────────────────
-// Middleware pipeline
+// Pipeline order (Routing → CORS → security → endpoints)
 // ─────────────────────────────────────────────
-app.UseHttpsRedirection();
+app.UseRouting();
+
+// CORS must be after routing and before auth
+app.UseCors("Frontend");
+
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
+
+
 
 // Security headers
 app.Use(async (ctx, next) =>
@@ -288,9 +287,6 @@ app.Use(async (ctx, next) =>
 // Global exception handler (ProblemDetails)
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 
-
-
-app.UseRouting();
 app.UseRateLimiter();
 
 app.UseAuthentication();
