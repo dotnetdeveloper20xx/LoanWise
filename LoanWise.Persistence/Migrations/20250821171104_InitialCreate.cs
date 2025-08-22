@@ -56,7 +56,8 @@ namespace LoanWise.Persistence.Migrations
                     Role = table.Column<int>(type: "int", nullable: false),
                     CreditScore = table.Column<int>(type: "int", nullable: true),
                     Tier = table.Column<int>(type: "int", nullable: true),
-                    IsActive = table.Column<bool>(type: "bit", nullable: false)
+                    IsActive = table.Column<bool>(type: "bit", nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: false)
                 },
                 constraints: table =>
                 {

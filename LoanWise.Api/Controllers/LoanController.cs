@@ -93,8 +93,8 @@ namespace LoanWise.Api.Controllers
         /// Returns the repayment schedule for a specific loan.
         /// Borrowers can view their own loans; Admins can view any (handler enforces ownership).
         /// </summary>
-        [HttpGet("{loanId:guid}/repayments")]
-        [Authorize(Roles = "Borrower,Admin")]
+        [HttpGet("{loanId:guid}/repayments")]       
+        [Authorize(Roles = "Borrower,Admin,Lender")]
         [ProducesResponseType(typeof(ApiResponse<List<RepaymentDto>>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ApiResponse<List<RepaymentDto>>), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]

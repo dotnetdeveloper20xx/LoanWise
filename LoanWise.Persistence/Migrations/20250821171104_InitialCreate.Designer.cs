@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace LoanWise.Persistence.Migrations
 {
     [DbContext(typeof(LoanWiseDbContext))]
-    [Migration("20250820131108_AddUserCreatedAtUtc")]
-    partial class AddUserCreatedAtUtc
+    [Migration("20250821171104_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
